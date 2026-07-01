@@ -86,18 +86,19 @@ const getSegmentColor = (fromId: string, toId: string) => {
 const getNumTracks = (fromId: string, toId: string): number => {
   const ids = [fromId, toId];
   
-  // 1. Triple track: Smolensk to Vyazma
-  const tripleTrackIds = [
+  // Smolensk to Vyazma (now double track as per user request)
+  const mainDoubleTrackIds = [
     'smolensk_sort', 'dukhovskaya', 'kardymovo', 'yartsevo', 'milokhovo', 
-    'safonovo', 'durovo', 'izdeshkovo', 'semlevo', 'vyazma'
+    'safonovo', 'durovo', 'izdeshkovo', 'semlevo', 'vyazma', 'smolensk'
   ];
-  if (tripleTrackIds.includes(fromId) && tripleTrackIds.includes(toId)) {
-    return 3;
+  if (mainDoubleTrackIds.includes(fromId) && mainDoubleTrackIds.includes(toId)) {
+    return 2;
   }
-  
-  // Smolensk to Smolensk-Sort is also triple track
-  if (ids.includes('smolensk') && ids.includes('smolensk_sort')) {
-    return 3;
+
+  // Smolensk to Rakitnaya via Krasny Bor (double track as per user request)
+  const smolenskRakitnayaIds = ['smolensk', 'krasny_bor', 'rakitnaya'];
+  if (smolenskRakitnayaIds.includes(fromId) && smolenskRakitnayaIds.includes(toId)) {
+    return 2;
   }
   
   // 2. Double track: Krasnoe to Smolensk
@@ -628,12 +629,12 @@ export default function InteractiveMap({
                   y={station.y + dy}
                   textAnchor={textAnchor}
                   transform={transform}
-                  className={`text-[10px] font-sans font-semibold select-none pointer-events-none transition-all duration-200 ${
+                  className={`font-sans select-none pointer-events-none transition-all duration-200 ${
                     isSelected 
-                      ? 'fill-red-600 font-bold scale-105' 
+                      ? 'text-[11px] fill-red-600 font-extrabold' 
                       : isHovered 
-                        ? 'fill-slate-900 font-bold' 
-                        : 'fill-slate-800'
+                        ? 'text-[10px] fill-slate-900 font-bold' 
+                        : 'text-[10px] fill-slate-800 font-semibold'
                   }`}
                   style={{
                     textShadow: '0 1px 2px rgba(255,255,255,1), 0 0 2px rgba(255,255,255,1), -1px -1px 0 rgba(255,255,255,1), 1px -1px 0 rgba(255,255,255,1), -1px 1px 0 rgba(255,255,255,1), 1px 1px 0 rgba(255,255,255,1)'
@@ -691,7 +692,7 @@ export default function InteractiveMap({
                     <circle
                       cx={station.x}
                       cy={station.y}
-                      r={r + (isSelected ? 6 : 4)}
+                      r={(isSelected ? r * 1.25 : isHovered ? r * 1.15 : r) + (isSelected ? 6 : 4)}
                       fill="none"
                       stroke={isSelected ? '#ef4444' : '#475569'}
                       strokeWidth="1.5"
@@ -704,11 +705,11 @@ export default function InteractiveMap({
                   <circle
                     cx={station.x}
                     cy={station.y}
-                    r={r}
+                    r={isSelected ? r * 1.25 : isHovered ? r * 1.15 : r}
                     fill={classInfo.bg}
-                    stroke="#000000"
-                    strokeWidth="1.2"
-                    className="transition-all duration-200 group-hover:scale-110"
+                    stroke={isSelected ? '#ef4444' : '#000000'}
+                    strokeWidth={isSelected ? '1.8' : '1.2'}
+                    className="transition-all duration-200"
                   />
 
                   {/* Inner Class indicator for ALL stations with correct contrast */}
@@ -718,7 +719,11 @@ export default function InteractiveMap({
                     textAnchor="middle"
                     className="font-sans font-extrabold pointer-events-none select-none transition-all duration-200"
                     style={{
-                      fontSize: r <= 7 ? '5.5px' : r <= 8.5 ? '6.5px' : '7px',
+                      fontSize: isSelected
+                        ? (r <= 7 ? '6.5px' : r <= 8.5 ? '7.5px' : '8px')
+                        : isHovered
+                          ? (r <= 7 ? '6px' : r <= 8.5 ? '7px' : '7.5px')
+                          : (r <= 7 ? '5.5px' : r <= 8.5 ? '6.5px' : '7px'),
                       fill: textColor
                     }}
                   >

@@ -9,39 +9,39 @@ export const STATIONS: StationData[] = [
   // MAIN HORIZONTAL LINE - PART 1 (WEST TO EAST)
   { id: 'rudnya', name: 'Рудня', classType: StationClass.CLASS_5, km: '456,2', connections: ['golynki'], x: 105, y: 110, labelPosition: 'right', labelAngle: -45 },
   { id: 'golynki', name: 'Голынки', classType: StationClass.CLASS_5, km: '432,9', connections: ['rudnya', 'kuprino'], x: 175, y: 160, labelPosition: 'right', labelAngle: -45 },
-  { id: 'kuprino', name: 'Куприно', classType: StationClass.CLASS_5, km: '411,1', connections: ['golynki', 'gnezdovo'], x: 235, y: 205, labelPosition: 'right', labelAngle: -45 },
+  { id: 'kuprino', name: 'Куприно', classType: StationClass.CLASS_5, km: '411,1', connections: ['golynki', 'gnezdovo', 'rakitnaya'], x: 235, y: 205, labelPosition: 'right', labelAngle: -45 },
   
   // SOUTHERN SPLIT
   { id: 'krasnoe', name: 'Красное', classType: StationClass.CLASS_5, km: '486,6', connections: ['gusino'], x: 75, y: 330, labelPosition: 'right', labelAngle: -45 },
-  { id: 'gusino', name: 'Гусино', classType: StationClass.CLASS_5, km: '464,3', connections: ['krasnoe', 'gnezdovo'], x: 155, y: 330, labelPosition: 'right', labelAngle: -45 },
+  { id: 'gusino', name: 'Гусино', classType: StationClass.CLASS_5, km: '464,3', connections: ['krasnoe', 'gnezdovo', 'rakitnaya'], x: 155, y: 330, labelPosition: 'right', labelAngle: -45 },
   
   // MERGE POINT
   { id: 'gnezdovo', name: 'Гнездово', classType: StationClass.CLASS_5, km: '400,9', connections: ['kuprino', 'gusino', 'smolensk', 'rakitnaya'], x: 270, y: 330, labelPosition: 'bottom' },
   
   // UPPER LOOP
-  { id: 'rakitnaya', name: 'Ракитная', classType: StationClass.CLASS_5, km: '433,9', connections: ['gnezdovo', 'krasny_bor'], x: 280, y: 230, labelPosition: 'right', labelAngle: -45 },
+  { id: 'rakitnaya', name: 'Ракитная', classType: StationClass.CLASS_5, km: '433,9', connections: ['gnezdovo', 'krasny_bor', 'gusino', 'kuprino'], x: 280, y: 230, labelPosition: 'right', labelAngle: -45 },
   { id: 'krasny_bor', name: 'Красный Бор', classType: StationClass.CLASS_3, km: '427,3', connections: ['rakitnaya', 'smolensk'], x: 335, y: 255, labelPosition: 'right', labelAngle: -45 },
 
   // SMOLENSK HUB
-  { id: 'smolensk', name: 'Смоленск', classType: StationClass.CLASS_1, km: '418,6', connections: ['gnezdovo', 'krasny_bor', 'smolensk_sort', 'novosmolenskaya'], x: 410, y: 270, labelPosition: 'right', labelAngle: -45 },
+  { id: 'smolensk', name: 'Смоленск', classType: StationClass.CLASS_1, km: '418,6', connections: ['gnezdovo', 'krasny_bor', 'smolensk_sort'], x: 410, y: 270, labelPosition: 'right', labelAngle: -45 },
   { id: 'smolensk_sort', name: 'Смоленск - Сорт.', classType: StationClass.EXTRA, km: '412,4', connections: ['smolensk', 'dukhovskaya', 'valutino'], x: 485, y: 270, labelPosition: 'right', labelAngle: -45 },
   
   // TO EAST FROM SMOLENSK-SORT
-  { id: 'dukhovskaya', name: 'Духовская', classType: StationClass.CLASS_5, km: '402,5', connections: ['smolensk_sort', 'kardymovo'], x: 545, y: 270, labelPosition: 'right', labelAngle: -60 },
+  { id: 'dukhovskaya', name: 'Духовская', classType: StationClass.CLASS_5, km: '402,5', connections: ['smolensk_sort', 'kardymovo', 'dobromino'], x: 545, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'kardymovo', name: 'Кардымово', classType: StationClass.CLASS_4, km: '384,6', connections: ['dukhovskaya', 'yartsevo'], x: 580, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'yartsevo', name: 'Ярцево', classType: StationClass.CLASS_4, km: '356,1', connections: ['kardymovo', 'milokhovo'], x: 610, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'milokhovo', name: 'Милохово', classType: StationClass.CLASS_4, km: '347,1', connections: ['yartsevo', 'safonovo'], x: 640, y: 270, labelPosition: 'right', labelAngle: -60 },
   
   // SAFONOVO HUB
-  { id: 'safonovo', name: 'Сафоново', classType: StationClass.CLASS_2, km: '316,5', connections: ['milokhovo', 'durovo', 'azotnaya', 'igorevskaya'], x: 675, y: 270, labelPosition: 'right', labelAngle: -60 },
+  { id: 'safonovo', name: 'Сафоново', classType: StationClass.CLASS_2, km: '316,5', connections: ['milokhovo', 'durovo', 'azotnaya'], x: 675, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'azotnaya', name: 'Азотная', classType: StationClass.CLASS_2, km: '20,3', connections: ['safonovo'], x: 675, y: 340, labelPosition: 'right' },
   
   // VLADIMIRSKY BRANCH
-  { id: 'igorevskaya', name: 'Игоревская', classType: StationClass.CLASS_4, km: '40,6', connections: ['safonovo', 'vladimirsky_tupik'], x: 715, y: 210, labelPosition: 'right' },
+  { id: 'igorevskaya', name: 'Игоревская', classType: StationClass.CLASS_4, km: '40,6', connections: ['vladimirsky_tupik', 'durovo'], x: 715, y: 210, labelPosition: 'right' },
   { id: 'vladimirsky_tupik', name: 'Владимирский Тупик', classType: StationClass.CLASS_5, km: '69,8', connections: ['igorevskaya'], x: 715, y: 120, labelPosition: 'right' },
   
   // EAST OF SAFONOVO
-  { id: 'durovo', name: 'Дурово', classType: StationClass.CLASS_4, km: '307,7', connections: ['safonovo', 'izdeshkovo'], x: 710, y: 270, labelPosition: 'right', labelAngle: -60 },
+  { id: 'durovo', name: 'Дурово', classType: StationClass.CLASS_4, km: '307,7', connections: ['safonovo', 'izdeshkovo', 'igorevskaya'], x: 710, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'izdeshkovo', name: 'Издешково', classType: StationClass.CLASS_5, km: '290,2', connections: ['durovo', 'semlevo'], x: 735, y: 270, labelPosition: 'right', labelAngle: -60 },
   { id: 'semlevo', name: 'Семлево', classType: StationClass.CLASS_5, km: '265,8', connections: ['izdeshkovo', 'vyazma'], x: 760, y: 270, labelPosition: 'right', labelAngle: -60 },
   
@@ -62,16 +62,16 @@ export const STATIONS: StationData[] = [
   { id: 'borodino', name: 'Бородино', classType: StationClass.CLASS_5, km: '121,4', connections: ['uvarovka'], x: 1055, y: 270, labelPosition: 'right', labelAngle: -60 },
  
   // SOUTH OF VYAZMA
-  { id: 'vyazma_bryanskaya', name: 'Вязьма-Брянская', classType: StationClass.CLASS_4, km: '6,7', connections: ['vyazma', 'volosta_pyatnitsa', 'baskakovka'], x: 815, y: 350, labelPosition: 'right' },
-  { id: 'volosta_pyatnitsa', name: 'Волоста-Пятница', classType: StationClass.CLASS_5, km: '23,2', connections: ['vyazma_bryanskaya', 'temkino'], x: 860, y: 420, labelPosition: 'right' },
-  { id: 'temkino', name: 'Тёмкино', classType: StationClass.CLASS_2, km: '52,8', connections: ['volosta_pyatnitsa'], x: 915, y: 420, labelPosition: 'right' },
+  { id: 'vyazma_bryanskaya', name: 'Вязьма-Брянская', classType: StationClass.CLASS_4, km: '6,7', connections: ['vyazma', 'volosta_pyatnitsa', 'temkino'], x: 815, y: 350, labelPosition: 'right' },
+  { id: 'volosta_pyatnitsa', name: 'Волоста-Пятница', classType: StationClass.CLASS_5, km: '23,2', connections: ['vyazma_bryanskaya', 'ugra'], x: 860, y: 420, labelPosition: 'right' },
+  { id: 'temkino', name: 'Тёмкино', classType: StationClass.CLASS_2, km: '52,8', connections: ['vyazma_bryanskaya'], x: 915, y: 420, labelPosition: 'right' },
  
   // SOUTHWARDS FROM SMOLENSK
-  { id: 'novosmolenskaya', name: 'Новосмоленская', classType: StationClass.CLASS_4, km: '15,8', connections: ['smolensk'], x: 410, y: 360, labelPosition: 'left' },
-  { id: 'valutino', name: 'Валутино', classType: StationClass.CLASS_5, km: '377,2', connections: ['smolensk_sort', 'tychinino', 'dobromino'], x: 550, y: 320, labelPosition: 'right' },
-  { id: 'dobromino', name: 'р. Добромино', classType: StationClass.CLASS_5, km: '544,9', connections: ['valutino', 'elnya'], x: 605, y: 360, labelPosition: 'top' },
+  { id: 'novosmolenskaya', name: 'Новосмоленская', classType: StationClass.CLASS_4, km: '15,8', connections: ['tychinino'], x: 410, y: 360, labelPosition: 'left' },
+  { id: 'valutino', name: 'Валутино', classType: StationClass.CLASS_5, km: '377,2', connections: ['smolensk_sort', 'tychinino'], x: 550, y: 320, labelPosition: 'right' },
+  { id: 'dobromino', name: 'р. Добромино', classType: StationClass.CLASS_5, km: '544,9', connections: ['dukhovskaya', 'elnya'], x: 605, y: 360, labelPosition: 'top' },
   
-  { id: 'tychinino', name: 'Тычинино', classType: StationClass.CLASS_5, km: '363,2', connections: ['valutino', 'ryabtsevo'], x: 550, y: 380, labelPosition: 'right' },
+  { id: 'tychinino', name: 'Тычинино', classType: StationClass.CLASS_5, km: '363,2', connections: ['valutino', 'ryabtsevo', 'novosmolenskaya'], x: 550, y: 380, labelPosition: 'right' },
   { id: 'ryabtsevo', name: 'Рябцево', classType: StationClass.CLASS_5, km: '353,2', connections: ['tychinino', 'peresna'], x: 550, y: 440, labelPosition: 'right' },
   { id: 'peresna', name: 'Пересна', classType: StationClass.CLASS_5, km: '337,7', connections: ['ryabtsevo', 'pochinok'], x: 550, y: 500, labelPosition: 'right' },
   { id: 'pochinok', name: 'Починок', classType: StationClass.CLASS_4, km: '324,9', connections: ['peresna', 'engelgardtovskaya'], x: 550, y: 560, labelPosition: 'left' },
@@ -104,7 +104,7 @@ export const STATIONS: StationData[] = [
   { id: 'lyudinovo_1', name: 'Людиново I', classType: StationClass.CLASS_3, km: '160,3', connections: ['lyudinovo_2'], x: 935, y: 890, labelPosition: 'right' },
  
   // NORTH BRANCH OF FAYANSOVAYA / ZANOZNAYA
-  { id: 'ugra', name: 'Угра', classType: StationClass.CLASS_5, km: '48,2', connections: ['vyazma_bryanskaya', 'baskakovka'], x: 830, y: 500, labelPosition: 'right' },
+  { id: 'ugra', name: 'Угра', classType: StationClass.CLASS_5, km: '48,2', connections: ['baskakovka', 'volosta_pyatnitsa'], x: 830, y: 500, labelPosition: 'right' },
   { id: 'baskakovka', name: 'Баскаковка', classType: StationClass.CLASS_5, km: '67,3', connections: ['ugra', 'zanoznaya'], x: 840, y: 580, labelPosition: 'right' },
 ];
 
