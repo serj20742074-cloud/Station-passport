@@ -7,12 +7,13 @@ import React, { useState, useMemo } from 'react';
 import InteractiveMap from './components/InteractiveMap';
 import StationPassportModal from './components/StationPassportModal';
 import SchemeEditor from './components/SchemeEditor';
+import TabletInstallationModal from './components/TabletInstallationModal';
 import { STATIONS, STATION_CLASS_INFO } from './data/stations';
 import { StationData, StationClass } from './types';
 import { 
   Building2, Train, Database, HelpCircle, 
   MapPin, Clipboard, ArrowRight, Layers, FileText,
-  Download, Upload, RefreshCw, Check, AlertCircle, Sliders
+  Download, Upload, RefreshCw, Check, AlertCircle, Sliders, Tablet
 } from 'lucide-react';
 import { exportBackup, importBackup } from './lib/db';
 
@@ -33,6 +34,7 @@ export default function App() {
   const [selectedClassFilter, setSelectedClassFilter] = useState<StationClass | 'ALL'>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
   
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -181,6 +183,15 @@ export default function App() {
 
           {/* Quick Technical Summary Counters */}
           <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs" id="quick-tech-summary">
+            <button
+              onClick={() => setIsTabletModalOpen(true)}
+              className="bg-slate-900 hover:bg-[#e21a1a] text-white font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-slate-900/10 hover:shadow-red-500/10 hover:scale-[1.02] cursor-pointer shrink-0"
+              id="header-install-tablet-btn"
+            >
+              <Tablet size={14} className="stroke-[2.5]" />
+              <span>Установить на планшет</span>
+            </button>
+
             <div className="bg-white border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2.5 shadow-sm">
               <div className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse" />
               <div>
@@ -475,6 +486,12 @@ export default function App() {
           onClose={() => setSelectedStation(null)}
         />
       )}
+
+      {/* Tablet Installation & GitHub Deployment Modal */}
+      <TabletInstallationModal 
+        isOpen={isTabletModalOpen}
+        onClose={() => setIsTabletModalOpen(false)}
+      />
 
     </div>
   );

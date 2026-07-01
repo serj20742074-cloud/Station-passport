@@ -1,0 +1,21 @@
+{
+  "short_name": "Паспорт МЖД",
+  "name": "Паспорт станций Смоленского региона МЖД",
+  "icons": [
+    {
+      "src": "https://img.icons8.com/color/192/railroad-track.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "https://img.icons8.com/color/512/railroad-track.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": ".",
+  "background_color": "#f8fafc",
+  "theme_color": "#e21a1a",
+  "display": "standalone",
+  "orientation": "any"
+}
