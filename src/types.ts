@@ -17,7 +17,7 @@ export interface StationStaff {
   position: string;
   fullName: string;
   phone: string;
-  email: string;
+  email?: string;
 }
 
 export interface StationIndicator {
@@ -39,6 +39,7 @@ export interface StationData {
   y: number; // SVG Y coordinate
   labelPosition?: 'top' | 'bottom' | 'left' | 'right' | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
   labelAngle?: number; // Optional rotation angle for text labels
+  description?: string; // Short info/summary
 }
 
 export interface StationDocument {

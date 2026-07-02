@@ -8,14 +8,15 @@ import InteractiveMap from './components/InteractiveMap';
 import StationPassportModal from './components/StationPassportModal';
 import SchemeEditor from './components/SchemeEditor';
 import TabletInstallationModal from './components/TabletInstallationModal';
-import { STATIONS, STATION_CLASS_INFO } from './data/stations';
-import { StationData, StationClass } from './types';
+import { STATIONS, STATION_CLASS_INFO, DEFAULT_STAFF } from './data/stations';
+import { StationData, StationClass, StationStaff } from './types';
 import { 
   Building2, Train, Database, HelpCircle, 
   MapPin, Clipboard, ArrowRight, Layers, FileText,
   Download, Upload, RefreshCw, Check, AlertCircle, Sliders, Tablet
 } from 'lucide-react';
-import { exportBackup, importBackup } from './lib/db';
+import { exportBackup, importBackup, getStaff, saveStaff } from './lib/db';
+import * as XLSX from 'xlsx';
 
 export default function App() {
   const [stations, setStations] = useState<StationData[]>(() => {
@@ -35,6 +36,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
+  const [activeMainTab, setActiveMainTab] = useState<'map' | 'registry'>('map');
   
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -43,6 +45,108 @@ export default function App() {
   const handleUpdateStations = (newStations: StationData[]) => {
     setStations(newStations);
     localStorage.setItem('rzd_custom_stations', JSON.stringify(newStations));
+  };
+
+  const handleUpdateStation = (updatedStation: StationData) => {
+    const updated = stations.map(s => s.id === updatedStation.id ? updatedStation : s);
+    setStations(updated);
+    localStorage.setItem('rzd_custom_stations', JSON.stringify(updated));
+    if (selectedStation && selectedStation.id === updatedStation.id) {
+      setSelectedStation(updatedStation);
+    }
+  };
+
+  const handleGlobalStaffExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        if (rows.length === 0) {
+          alert('Файл Excel пуст.');
+          return;
+        }
+
+        const firstCell = String(rows[0]?.[0] || '').toLowerCase();
+        const startRow = (firstCell.includes('станц') || firstCell.includes('назван') || firstCell.includes('station')) ? 1 : 0;
+
+        const staffByStation: Record<string, StationStaff[]> = {};
+
+        for (let i = startRow; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length < 2) continue;
+
+          const rowStationName = String(row[0] || '').trim();
+          const position = String(row[1] || '').trim();
+          const fullName = String(row[2] || '').trim();
+          const phone = String(row[3] || '').trim();
+
+          if (!rowStationName || !position) continue;
+
+          const cleanRowStation = rowStationName.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+          const matchedStation = stations.find(s => {
+            const cleanSName = s.name.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+            return cleanSName === cleanRowStation || cleanSName.includes(cleanRowStation) || cleanRowStation.includes(cleanSName);
+          });
+
+          if (matchedStation) {
+            if (!staffByStation[matchedStation.id]) {
+              staffByStation[matchedStation.id] = [];
+            }
+            staffByStation[matchedStation.id].push({
+              id: Math.random().toString(36).substr(2, 9),
+              position,
+              fullName: fullName || 'ФИО не указано',
+              phone: phone || '',
+            });
+          }
+        }
+
+        const matchedStationIds = Object.keys(staffByStation);
+        if (matchedStationIds.length === 0) {
+          alert('Не удалось сопоставить ни одну строку со станциями Смоленского региона. Пожалуйста, проверьте, что в первой колонке указаны корректные названия станций.');
+          return;
+        }
+
+        let totalImported = 0;
+        for (const stationId of matchedStationIds) {
+          const newStaff = staffByStation[stationId];
+          const existingStaff = await getStaff(stationId) || DEFAULT_STAFF[stationId] || [];
+          const merged = [...existingStaff, ...newStaff];
+          await saveStaff(stationId, merged);
+          totalImported += newStaff.length;
+        }
+
+        alert(`Импорт завершен успешно!\nРазложено работников: ${totalImported} по ${matchedStationIds.length} станциям.`);
+      } catch (err) {
+        alert('Ошибка при чтении Excel файла. Убедитесь в корректности структуры (1-я колонка: Название станции, 2-я: Должность, 3-я: ФИО, 4-я: Рабочий телефон).');
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleDownloadGlobalStaffTemplate = () => {
+    const header = ['Станция', 'Должность', 'ФИО', 'Рабочий телефон'];
+    const templateData = [
+      ['Смоленск', 'Начальник станции', 'Иванов Сергей Петрович', '+7 (910) 123-45-67, 2-11-22'],
+      ['Смоленск', 'Дежурный по станции', 'Петров Алексей Владимирович', '+7 (910) 765-43-21'],
+      ['Вязьма', 'Начальник станции', 'Александров Илья Андреевич', '+7 (905) 698-22-33'],
+      ['Сафоново', 'Начальник станции', 'Григорьев Денис Сергеевич', '+7 (915) 634-88-99']
+    ];
+
+    const ws = XLSX.utils.aoa_to_sheet([header, ...templateData]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Штат Станций');
+    XLSX.writeFile(wb, 'Шаблон_Импорт_Штата_Всех_Станций.xlsx');
   };
 
   const handleResetStations = () => {
@@ -183,15 +287,6 @@ export default function App() {
 
           {/* Quick Technical Summary Counters */}
           <div className="flex flex-wrap items-center gap-3 md:gap-4 text-xs" id="quick-tech-summary">
-            <button
-              onClick={() => setIsTabletModalOpen(true)}
-              className="bg-slate-900 hover:bg-[#e21a1a] text-white font-bold px-3.5 py-2 rounded-xl flex items-center gap-2 transition-all shadow-md shadow-slate-900/10 hover:shadow-red-500/10 hover:scale-[1.02] cursor-pointer shrink-0"
-              id="header-install-tablet-btn"
-            >
-              <Tablet size={14} className="stroke-[2.5]" />
-              <span>Установить на планшет</span>
-            </button>
-
             <div className="bg-white border border-slate-200 px-3 py-2 rounded-xl flex items-center gap-2.5 shadow-sm">
               <div className="w-2.5 h-2.5 rounded-full bg-slate-400 animate-pulse" />
               <div>
@@ -231,27 +326,184 @@ export default function App() {
       {/* Main Body content */}
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full flex flex-col gap-6" id="app-main-content">
         
-        {/* Top Interactive Guideline Ribbon */}
-        <section className="bg-white border-l-4 border-l-[#e21a1a] border-y border-r border-slate-200/80 rounded-r-2xl rounded-l-sm p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm" id="welcome-alert">
-          <div className="flex items-start gap-3">
-            <Clipboard size={18} className="text-[#e21a1a] shrink-0 mt-0.5" />
-            <div className="text-xs sm:text-sm text-slate-600">
-              <span className="font-bold text-slate-900">Инструкция:</span> Выберите интересующую станцию на интерактивной карте Смоленского управления ниже или найдите в списке. В открывшейся карточке паспорта вы сможете загрузить схемы путей и ТРА в PDF, а также импортировать штат и показатели работы из Excel-файлов.
-            </div>
-          </div>
-          <a 
-            href="#directory-section" 
-            className="text-xs font-bold text-[#e21a1a] hover:text-red-700 flex items-center gap-1 transition-all shrink-0 cursor-pointer"
-            id="jump-to-list-link"
+        {/* Main Tabs Switcher */}
+        <div className="flex border-b border-slate-200 bg-white rounded-xl p-1 shadow-sm border border-slate-200 animate-in fade-in duration-300" id="main-view-tabs">
+          <button
+            onClick={() => setActiveMainTab('map')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all cursor-pointer ${
+              activeMainTab === 'map'
+                ? 'bg-[#e21a1a] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+            id="main-tab-map-btn"
           >
-            Перейти к списку станций <ArrowRight size={12} />
-          </a>
-        </section>
+            <Layers size={14} />
+            <span>ИНТЕРАКТИВНАЯ СХЕМА СМОЛЕНСКОГО РЕГИОНА</span>
+          </button>
+          <button
+            onClick={() => setActiveMainTab('registry')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all cursor-pointer ${
+              activeMainTab === 'registry'
+                ? 'bg-[#e21a1a] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+            id="main-tab-registry-btn"
+          >
+            <Building2 size={14} />
+            <span>РЕЕСТР СТАНЦИЙ РЕГИОНА</span>
+          </button>
+        </div>
+
+        {/* Tab 1: Map Section */}
+        {activeMainTab === 'map' && (
+          <section className="flex flex-col gap-3 bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm animate-in fade-in duration-200" id="map-section">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+              <div>
+                <h2 className="text-sm font-bold text-slate-800 flex items-center gap-2">
+                  <Layers size={16} className="text-[#e21a1a]" />
+                  Интерактивная схема Смоленского региона МЖД
+                </h2>
+                <span className="text-xs text-slate-400 mt-0.5 block">
+                  Схема региона закреплена по центру. Для масштабирования используйте колесико мыши или pinch-to-zoom (жест двумя пальцами на планшетах). Удерживайте левую кнопку мыши для перемещения схемы.
+                </span>
+              </div>
+            </div>
+
+            <div className="w-full flex items-center justify-center overflow-hidden bg-slate-50/50 rounded-xl border border-slate-100 p-2">
+              <InteractiveMap 
+                stations={stations}
+                onSelectStation={setSelectedStation}
+                selectedStationId={selectedStation?.id}
+                isEditMode={false}
+                onUpdateStations={handleUpdateStations}
+              />
+            </div>
+          </section>
+        )}
+
+        {/* Tab 2: Station Directory list */}
+        {activeMainTab === 'registry' && (
+          <section className="flex flex-col gap-4 bg-white p-5 rounded-2xl border border-slate-200/85 shadow-sm animate-in fade-in duration-200" id="directory-section">
+            
+            {/* Header of Section */}
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 border-b border-slate-100 pb-4">
+              <div>
+                <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
+                  <Building2 size={16} className="text-[#e21a1a]" />
+                  Реестр железнодорожных станций управления
+                </h2>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Быстрый доступ к электронным паспортам, схемам путевого развития и штатному расписанию станций
+                </p>
+              </div>
+
+              {/* Filters & Actions */}
+              <div className="flex flex-wrap items-center gap-2.5">
+                {/* Search in list */}
+                <input
+                  type="text"
+                  id="directory-search-input"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Поиск по названию или км..."
+                  className="bg-white border border-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all placeholder-slate-400 shadow-sm"
+                />
+
+                {/* Class filters */}
+                <select
+                  id="directory-class-filter"
+                  value={selectedClassFilter}
+                  onChange={(e) => setSelectedClassFilter(e.target.value as any)}
+                  className="bg-white border border-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 transition-all shadow-sm"
+                >
+                  <option value="ALL">Все классы</option>
+                  {Object.values(StationClass).map(cls => (
+                    <option key={cls} value={cls}>{cls} класс ({stats[cls]})</option>
+                  ))}
+                </select>
+
+                <div className="w-px h-6 bg-slate-200 hidden sm:block mx-1" />
+
+                {/* Global Excel Import Template */}
+                <button
+                  onClick={handleDownloadGlobalStaffTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs transition-colors cursor-pointer border border-slate-200 shadow-sm"
+                  title="Скачать шаблон таблицы Excel для импорта штата всех станций"
+                  id="download-global-template-btn"
+                >
+                  <Download size={13} className="text-slate-500" />
+                  <span>Скачать шаблон Excel</span>
+                </button>
+
+                {/* Global Excel Upload Button */}
+                <label 
+                  id="global-staff-excel-label"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-emerald-600/10 font-bold"
+                  title="Загрузить штатные расписания всех станций из одного Excel файла"
+                >
+                  <Upload size={13} />
+                  <span>Импорт штата всех станций (Excel)</span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleGlobalStaffExcelUpload}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </div>
+
+            {/* Cards Directory Grid */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" id="directory-grid">
+              {filteredStations.map((station) => {
+                const classInfo = STATION_CLASS_INFO[station.classType];
+                const isSelected = selectedStation?.id === station.id;
+                
+                return (
+                  <button
+                    key={station.id}
+                    id={`directory-card-${station.id}`}
+                    onClick={() => setSelectedStation(station)}
+                    className={`p-3.5 bg-white hover:bg-slate-50 border text-left rounded-xl transition-all flex flex-col justify-between h-28 group relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md ${
+                      isSelected 
+                        ? 'border-[#e21a1a] ring-1 ring-[#e21a1a]/30 bg-red-50/10' 
+                        : 'border-slate-200/80 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className="flex flex-col">
+                      <span className="text-[10px] font-bold font-mono tracking-wider uppercase mb-1" style={{ color: classInfo.bg }}>
+                        {station.classType} КЛАСС
+                      </span>
+                      <span className="text-sm font-bold text-slate-800 group-hover:text-[#e21a1a] transition-all leading-snug">{station.name}</span>
+                    </div>
+                    
+                    <div className="mt-auto flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                      <span>км {station.km}</span>
+                      <span className="opacity-0 group-hover:opacity-100 transition-all text-[#e21a1a] font-bold">Паспорт →</span>
+                    </div>
+                    
+                    {/* Decorative background class identifier */}
+                    <span className="absolute -right-3 -bottom-5 text-7xl font-bold text-slate-200/40 pointer-events-none select-none font-sans">
+                      {station.classType}
+                    </span>
+                  </button>
+                );
+              })}
+
+              {filteredStations.length === 0 && (
+                <div className="col-span-full py-12 text-center text-xs text-slate-400" id="no-stations-found">
+                  Станций по выбранным критериям не найдено.
+                </div>
+              )}
+            </div>
+
+          </section>
+        )}
 
         {/* Backup Status Message */}
         {backupMessage && (
           <div 
-            className={`p-4 rounded-xl border flex items-center gap-3 text-xs sm:text-sm animate-in fade-in slide-in-from-top-4 duration-300 ${
+            className={`p-4 rounded-xl border flex items-center gap-3 text-xs sm:text-sm mt-4 animate-in fade-in slide-in-from-top-4 duration-300 ${
               backupMessage.type === 'success' 
                 ? 'bg-emerald-50 border-emerald-200 text-emerald-800' 
                 : 'bg-red-50 border-red-200 text-red-800'
@@ -268,7 +520,7 @@ export default function App() {
         )}
 
         {/* Backup & Restore Panel */}
-        <section className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm" id="backup-restore-panel">
+        <section className="bg-white border border-slate-200 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm mt-6" id="backup-restore-panel">
           <div className="flex items-start gap-3">
             <Database size={18} className="text-[#e21a1a] shrink-0 mt-0.5" />
             <div>
@@ -313,155 +565,6 @@ export default function App() {
           </div>
         </section>
 
-        {/* Map Section */}
-        <section className="flex flex-col gap-3" id="map-section">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200/80 shadow-sm">
-            <div>
-              <h2 className="text-xs font-bold font-mono tracking-wider text-slate-400 uppercase flex items-center gap-2">
-                <Layers size={14} className="text-[#e21a1a]" />
-                Интерактивная карта Смоленского управления МЖД
-              </h2>
-              <span className="text-[11px] text-slate-400 mt-0.5 block">Масштаб регулируется колесиком мыши. {isEditMode && "Режим редактирования активен: перетаскивайте станции мышкой!"}</span>
-            </div>
-            
-            {/* Map manual edit controls */}
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setIsEditMode(!isEditMode)}
-                className={`flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer border ${
-                  isEditMode 
-                    ? 'bg-red-500 border-red-600 text-white hover:bg-red-600' 
-                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                }`}
-                id="edit-mode-toggle"
-              >
-                <Sliders size={14} className={isEditMode ? 'animate-pulse' : ''} />
-                {isEditMode ? 'Редактирование: ВКЛ' : 'Редактировать схему'}
-              </button>
-              {isEditMode && (
-                <button
-                  onClick={handleResetStations}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-500 font-bold rounded-xl text-xs transition-colors cursor-pointer border border-slate-200 shadow-sm"
-                  id="reset-stations-btn"
-                >
-                  <RefreshCw size={12} />
-                  Сбросить схему
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className={`grid grid-cols-1 ${isEditMode ? 'lg:grid-cols-4' : ''} gap-4 w-full`}>
-            <div className={isEditMode ? 'lg:col-span-3 flex flex-col gap-3' : 'w-full flex flex-col gap-3'}>
-              <InteractiveMap 
-                stations={stations}
-                onSelectStation={setSelectedStation}
-                selectedStationId={selectedStation?.id}
-                isEditMode={isEditMode}
-                onUpdateStations={handleUpdateStations}
-              />
-            </div>
-            {isEditMode && (
-              <div className="lg:col-span-1 h-full min-h-[500px]">
-                <SchemeEditor
-                  stations={stations}
-                  onUpdateStations={handleUpdateStations}
-                  selectedStation={selectedStation}
-                  onSelectStation={setSelectedStation}
-                />
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Bottom Station Directory list (Bento layout) */}
-        <section className="mt-4 flex flex-col gap-4 border-t border-slate-200 pt-6" id="directory-section">
-          
-          {/* Header of Section */}
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-            <div>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                <Building2 size={16} className="text-[#e21a1a]" />
-                Реестр железнодорожных станций управления
-              </h2>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Быстрый доступ к электронным паспортам и отчетным документам
-              </p>
-            </div>
-
-            {/* Filters & Direct Search */}
-            <div className="flex flex-wrap items-center gap-2.5">
-              {/* Search in list */}
-              <input
-                type="text"
-                id="directory-search-input"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Фильтр по названию..."
-                className="bg-white border border-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 focus:border-red-500 transition-all placeholder-slate-400 shadow-sm"
-              />
-
-              {/* Class filters */}
-              <select
-                id="directory-class-filter"
-                value={selectedClassFilter}
-                onChange={(e) => setSelectedClassFilter(e.target.value as any)}
-                className="bg-white border border-slate-200 text-slate-800 text-xs px-3 py-1.5 rounded-lg focus:outline-none focus:ring-1 focus:ring-red-500 transition-all shadow-sm"
-              >
-                <option value="ALL">Все классы</option>
-                {Object.values(StationClass).map(cls => (
-                  <option key={cls} value={cls}>{cls} класс ({stats[cls]})</option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          {/* Cards Directory Grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3" id="directory-grid">
-            {filteredStations.map((station) => {
-              const classInfo = STATION_CLASS_INFO[station.classType];
-              const isSelected = selectedStation?.id === station.id;
-              
-              return (
-                <button
-                  key={station.id}
-                  id={`directory-card-${station.id}`}
-                  onClick={() => setSelectedStation(station)}
-                  className={`p-3.5 bg-white hover:bg-slate-50 border text-left rounded-xl transition-all flex flex-col justify-between h-28 group relative overflow-hidden cursor-pointer shadow-sm hover:shadow-md ${
-                    isSelected 
-                      ? 'border-[#e21a1a] ring-1 ring-[#e21a1a]/30 bg-red-50/10' 
-                      : 'border-slate-200/80 hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex flex-col">
-                    <span className="text-[10px] font-bold font-mono tracking-wider uppercase mb-1" style={{ color: classInfo.bg }}>
-                      {station.classType} КЛАСС
-                    </span>
-                    <span className="text-sm font-bold text-slate-800 group-hover:text-[#e21a1a] transition-all leading-snug">{station.name}</span>
-                  </div>
-                  
-                  <div className="mt-auto flex items-center justify-between text-[10px] text-slate-400 font-mono">
-                    <span>км {station.km}</span>
-                    <span className="opacity-0 group-hover:opacity-100 transition-all text-[#e21a1a] font-bold">Паспорт →</span>
-                  </div>
-                  
-                  {/* Decorative background class identifier */}
-                  <span className="absolute -right-3 -bottom-5 text-7xl font-bold text-slate-200/40 pointer-events-none select-none font-sans">
-                    {station.classType}
-                  </span>
-                </button>
-              );
-            })}
-
-            {filteredStations.length === 0 && (
-              <div className="col-span-full py-12 text-center text-xs text-slate-400" id="no-stations-found">
-                Станций по выбранным критериям не найдено.
-              </div>
-            )}
-          </div>
-
-        </section>
-
       </main>
 
       {/* Professional Footer */}
@@ -484,14 +587,9 @@ export default function App() {
         <StationPassportModal 
           station={selectedStation}
           onClose={() => setSelectedStation(null)}
+          onUpdateStation={handleUpdateStation}
         />
       )}
-
-      {/* Tablet Installation & GitHub Deployment Modal */}
-      <TabletInstallationModal 
-        isOpen={isTabletModalOpen}
-        onClose={() => setIsTabletModalOpen(false)}
-      />
 
     </div>
   );

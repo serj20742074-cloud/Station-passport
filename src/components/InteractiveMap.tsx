@@ -102,6 +102,11 @@ const getNumTracks = (fromId: string, toId: string): number => {
   }
   
   // 2. Double track: Krasnoe to Smolensk
+  // Exception: Gusino to Gnezdovo is single track as per user request
+  if (ids.includes('gusino') && ids.includes('gnezdovo')) {
+    return 1;
+  }
+  
   const doubleTrackWest = ['krasnoe', 'gusino', 'gnezdovo', 'smolensk'];
   if (doubleTrackWest.includes(fromId) && doubleTrackWest.includes(toId)) {
     return 2;
@@ -188,16 +193,55 @@ export default function InteractiveMap({
   const containerRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  // Keep track of pinch zoom touches using refs for lag-free performance
+  const touchStartDistRef = useRef<number | null>(null);
+  const touchStartZoomRef = useRef<number>(1);
+  const touchStartPanRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
+
   // Default coordinate boundaries
   const mapWidth = 1200;
   const mapHeight = 900;
+
+  // Center map on mount and when container size is resolved
+  useEffect(() => {
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth || 800;
+      const containerHeight = containerRef.current.clientHeight || 550;
+      
+      // We want to fit the 1200 x 900 map cleanly
+      const scaleX = containerWidth / mapWidth;
+      const scaleY = containerHeight / mapHeight;
+      const fitZoom = Math.min(scaleX, scaleY, 1.2) * 0.95; // 95% of screen boundary, max 1.2
+      
+      // Centered position
+      const px = (containerWidth - mapWidth * fitZoom) / 2;
+      const py = (containerHeight - mapHeight * fitZoom) / 2;
+      
+      setZoom(fitZoom);
+      setPan({ x: px, y: py });
+    }
+  }, []);
 
   // Zoom and pan functions
   const handleZoomIn = () => setZoom((prev) => Math.min(prev * 1.2, 5));
   const handleZoomOut = () => setZoom((prev) => Math.max(prev / 1.2, 0.5));
   const handleReset = () => {
-    setZoom(1);
-    setPan({ x: 0, y: 0 });
+    if (containerRef.current) {
+      const containerWidth = containerRef.current.clientWidth || 800;
+      const containerHeight = containerRef.current.clientHeight || 550;
+      const scaleX = containerWidth / mapWidth;
+      const scaleY = containerHeight / mapHeight;
+      const fitZoom = Math.min(scaleX, scaleY, 1.2) * 0.95;
+      
+      const px = (containerWidth - mapWidth * fitZoom) / 2;
+      const py = (containerHeight - mapHeight * fitZoom) / 2;
+      
+      setZoom(fitZoom);
+      setPan({ x: px, y: py });
+    } else {
+      setZoom(1);
+      setPan({ x: 0, y: 0 });
+    }
   };
 
   // Center on a specific station
@@ -206,10 +250,6 @@ export default function InteractiveMap({
     const containerWidth = containerRef.current.clientWidth;
     const containerHeight = containerRef.current.clientHeight;
 
-    // We want the station coordinates (station.x, station.y) to be centered in the container.
-    // Container coordinates: target_x = containerWidth / 2, target_y = containerHeight / 2
-    // SVG coordinates scaled: scaled_x = station.x * zoom, scaled_y = station.y * zoom
-    // We need pan to be: target - scaled
     const targetZoom = 1.8;
     setZoom(targetZoom);
     setPan({
@@ -281,6 +321,18 @@ export default function InteractiveMap({
 
   // Touch handlers for mobile panning and node dragging
   const handleTouchStart = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length === 2) {
+      // 2-finger pinch gesture start
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+      touchStartDistRef.current = dist;
+      touchStartZoomRef.current = zoom;
+      touchStartPanRef.current = { ...pan };
+      setIsDragging(false);
+      return;
+    }
+
     if (e.touches.length !== 1) return;
     setIsDragging(true);
     const touch = e.touches[0];
@@ -288,6 +340,36 @@ export default function InteractiveMap({
   };
 
   const handleTouchMove = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length === 2 && touchStartDistRef.current !== null) {
+      // 2-finger pinch gesture moving
+      const touch1 = e.touches[0];
+      const touch2 = e.touches[1];
+      const dist = Math.hypot(touch1.clientX - touch2.clientX, touch1.clientY - touch2.clientY);
+      const factor = dist / touchStartDistRef.current;
+      const newZoom = Math.max(0.4, Math.min(touchStartZoomRef.current * factor, 5));
+
+      if (containerRef.current) {
+        const midX = (touch1.clientX + touch2.clientX) / 2;
+        const midY = (touch1.clientY + touch2.clientY) / 2;
+        const rect = containerRef.current.getBoundingClientRect();
+        const clientX = midX - rect.left;
+        const clientY = midY - rect.top;
+
+        // Current relative coordinate inside SVG before scaling
+        const svgMouseX = (clientX - touchStartPanRef.current.x) / touchStartZoomRef.current;
+        const svgMouseY = (clientY - touchStartPanRef.current.y) / touchStartZoomRef.current;
+
+        setZoom(newZoom);
+        setPan({
+          x: clientX - svgMouseX * newZoom,
+          y: clientY - svgMouseY * newZoom,
+        });
+      } else {
+        setZoom(newZoom);
+      }
+      return;
+    }
+
     if (activeDragStationId && svgRef.current && onUpdateStations && e.touches.length === 1) {
       const touch = e.touches[0];
       const rect = svgRef.current.getBoundingClientRect();
@@ -317,7 +399,10 @@ export default function InteractiveMap({
     });
   };
 
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent<SVGSVGElement>) => {
+    if (e.touches.length < 2) {
+      touchStartDistRef.current = null;
+    }
     setIsDragging(false);
     setActiveDragStationId(null);
   };

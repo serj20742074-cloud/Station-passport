@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
-import { StationData, StationStaff, StationIndicator, StationDocument } from '../types';
+import { StationData, StationStaff, StationIndicator, StationDocument, StationClass } from '../types';
 import { STATION_CLASS_INFO, DEFAULT_STAFF, DEFAULT_INDICATORS } from '../data/stations';
 import { 
   getStaff, saveStaff, 
@@ -21,12 +21,13 @@ import * as XLSX from 'xlsx';
 interface StationPassportModalProps {
   station: StationData | null;
   onClose: () => void;
+  onUpdateStation?: (updatedStation: StationData) => void;
 }
 
 type TabType = 'staff' | 'scheme' | 'tra' | 'indicators';
 
-export default function StationPassportModal({ station, onClose }: StationPassportModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('staff');
+export default function StationPassportModal({ station, onClose, onUpdateStation }: StationPassportModalProps) {
+  const [activeTab, setActiveTab] = useState<TabType>('scheme');
   const [staffList, setStaffList] = useState<StationStaff[]>([]);
   const [indicators, setIndicators] = useState<StationIndicator[]>([]);
   const [schemeDoc, setSchemeDoc] = useState<StationDocument | null>(null);
@@ -46,6 +47,12 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
   // Edit states for staff/indicators
   const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [editingIndicatorId, setEditingIndicatorId] = useState<string | null>(null);
+
+  // Station card editing state
+  const [isEditingCard, setIsEditingCard] = useState(false);
+  const [editClass, setEditClass] = useState<StationClass>(station?.classType || StationClass.CLASS_5);
+  const [editKm, setEditKm] = useState<string>(station?.km || '');
+  const [editDesc, setEditDesc] = useState<string>(station?.description || '');
 
   if (!station) return null;
 
@@ -94,6 +101,12 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
 
     loadStationData();
 
+    // Reset card editing fields
+    setEditClass(station.classType);
+    setEditKm(station.km);
+    setEditDesc(station.description || '');
+    setIsEditingCard(false);
+
     return () => {
       active = false;
     };
@@ -125,6 +138,20 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
     }
   };
 
+  const handleSaveCard = () => {
+    if (onUpdateStation) {
+      onUpdateStation({
+        ...station,
+        classType: editClass,
+        km: editKm,
+        description: editDesc,
+      });
+    }
+    setIsEditingCard(false);
+    setSavingStatus('saved');
+    setTimeout(() => setSavingStatus('idle'), 2000);
+  };
+
   // Staff Operations
   const handleAddStaffRow = () => {
     const newRow: StationStaff = {
@@ -132,7 +159,6 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
       position: 'Новая должность',
       fullName: 'ФИО сотрудника',
       phone: '+7 (900) 000-00-00',
-      email: 'employee@mzd.ru'
     };
     const updated = [...staffList, newRow];
     setStaffList(updated);
@@ -173,29 +199,50 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
         const workbook = XLSX.read(data, { type: 'array' });
         const firstSheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[firstSheetName];
-        const json = XLSX.utils.sheet_to_json<any>(worksheet);
+        
+        // Parse raw cells (AOA - array of arrays) to guarantee correct column indexes
+        const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        if (rows.length === 0) {
+          alert('Файл Excel пуст.');
+          return;
+        }
 
-        // Map spreadsheet headers to StationStaff fields
-        // Supported headers: "Станция", "Должность", "ФИО", "Телефон", "E-mail"
-        const importedStaff: StationStaff[] = json
-          .filter(row => {
-            // If spreadsheet specifies a station, only import if it matches current
-            if (row['Станция'] || row['станция']) {
-              const rowStation = String(row['Станция'] || row['станция']).trim().toLowerCase();
-              return rowStation === station.name.toLowerCase();
+        // Determine if first row contains headers like "Станция" or "Должность"
+        const firstCell = String(rows[0]?.[0] || '').toLowerCase();
+        const startRow = (firstCell.includes('станц') || firstCell.includes('назван') || firstCell.includes('station')) ? 1 : 0;
+
+        const importedStaff: StationStaff[] = [];
+        for (let i = startRow; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length < 2) continue;
+
+          // Columns layout: 1st Name of Station, 2nd Position, 3rd FIO, 4th Work Phone
+          const rowStationName = String(row[0] || '').trim();
+          const position = String(row[1] || '').trim();
+          const fullName = String(row[2] || '').trim();
+          const phone = String(row[3] || '').trim();
+
+          if (!position) continue;
+
+          // If station is specified in spreadsheet, filter by current station
+          if (rowStationName) {
+            const cleanRowStation = rowStationName.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+            const cleanCurrentStation = station.name.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
+            if (cleanRowStation !== cleanCurrentStation && !cleanCurrentStation.includes(cleanRowStation) && !cleanRowStation.includes(cleanCurrentStation)) {
+              continue; // skip if doesn't match
             }
-            return true; // if no station specified, import directly
-          })
-          .map(row => ({
+          }
+
+          importedStaff.push({
             id: Math.random().toString(36).substr(2, 9),
-            position: String(row['Должность'] || row['должность'] || 'Должность').trim(),
-            fullName: String(row['ФИО'] || row['ФИО работников'] || row['ФИО сотрудника'] || row['Имя'] || 'ФИО').trim(),
-            phone: String(row['Телефон'] || row['телефон'] || '').trim(),
-            email: String(row['E-mail'] || row['Email'] || row['почта'] || '').trim(),
-          }));
+            position,
+            fullName: fullName || 'ФИО не указано',
+            phone: phone || '',
+          });
+        }
 
         if (importedStaff.length === 0) {
-          alert(`В файле не найдено записей для станции "${station.name}". Проверьте правильность заполнения колонки "Станция".`);
+          alert(`В файле не найдено записей для станции "${station.name}". Пожалуйста, убедитесь, что в первой колонке указано правильное название станции.`);
           return;
         }
 
@@ -204,7 +251,7 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
         triggerSave('staff', merged);
         alert(`Успешно импортировано работников: ${importedStaff.length}`);
       } catch (err) {
-        alert('Ошибка при чтении Excel файла. Убедитесь в корректности структуры шаблона.');
+        alert('Ошибка при чтении Excel файла. Убедитесь в корректности структуры (1-я колонка: Станция, 2-я: Должность, 3-я: ФИО, 4-я: Телефоны).');
         console.error(err);
       }
     };
@@ -214,15 +261,16 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
 
   // Excel Staff Template Download
   const handleDownloadStaffTemplate = () => {
+    const header = ['Станция', 'Должность', 'ФИО', 'Рабочий телефон'];
     const templateData = [
-      { 'Станция': station.name, 'Должность': 'Начальник станции', 'ФИО': 'Иванов Сергей Петрович', 'Телефон': '+7 (910) 123-45-67', 'E-mail': 'ivanov@mzd.ru' },
-      { 'Станция': station.name, 'Должность': 'Дежурный по станции', 'ФИО': 'Петров Алексей Владимирович', 'Телефон': '+7 (910) 765-43-21', 'E-mail': 'petrov@mzd.ru' },
-      { 'Станция': 'Смоленск', 'Должность': 'Главный инженер', 'ФИО': 'Николаев Иван Иванович', 'Телефон': '+7 (910) 999-88-77', 'E-mail': 'nikolaev@mzd.ru' }
+      [station.name, 'Начальник станции', 'Иванов Сергей Петрович', '+7 (910) 123-45-67, 2-11-22'],
+      [station.name, 'Дежурный по станции', 'Петров Алексей Владимирович', '+7 (910) 765-43-21'],
+      [station.name, 'Главный инженер', 'Николаев Иван Иванович', '+7 (910) 999-88-77']
     ];
 
-    const ws = XLSX.utils.json_to_sheet(templateData);
+    const ws = XLSX.utils.aoa_to_sheet([header, ...templateData]);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Штат Станций');
+    XLSX.utils.book_append_sheet(wb, ws, 'Штат Станции');
     XLSX.writeFile(wb, `Шаблон_Штат_${station.name}.xlsx`);
   };
 
@@ -407,22 +455,101 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
         
         {/* Modal Header */}
         <div className="bg-slate-50 border-b border-slate-200 p-5 flex items-center justify-between" id="passport-modal-header">
-          <div className="flex items-center gap-4">
-            <div className="flex flex-col">
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-xl font-bold text-slate-900 font-sans tracking-tight" id="station-title">{station.name}</h2>
-                <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${classInfo.color}`} id="station-class-badge">
-                  {classInfo.label} класс
-                </span>
-              </div>
-              <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 font-medium">
-                <MapPin size={12} className="text-[#e21a1a]" />
-                <span>Ордината: км {station.km} Смоленского территориального управления МЖД</span>
-              </div>
+          <div className="flex items-center gap-4 flex-1">
+            <div className="flex flex-col w-full">
+              {isEditingCard ? (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 w-full max-w-2xl">
+                  <div className="flex items-center gap-2 shrink-0">
+                    <h2 className="text-xl font-bold text-slate-900 font-sans tracking-tight shrink-0" id="station-title">{station.name}</h2>
+                    <span className="text-xs text-slate-400 font-medium shrink-0">(Редактирование)</span>
+                  </div>
+                  <div className="flex items-center gap-3 w-full">
+                    {/* Class Selector */}
+                    <div className="flex items-center gap-1.5 w-40">
+                      <span className="text-xs text-slate-500 font-semibold shrink-0">Класс:</span>
+                      <select
+                        value={editClass}
+                        onChange={(e) => setEditClass(e.target.value as StationClass)}
+                        className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-[#e21a1a] w-full cursor-pointer"
+                        id="edit-class-select"
+                      >
+                        {(Object.values(StationClass) as StationClass[]).map((cls) => (
+                          <option key={cls} value={cls}>
+                            {STATION_CLASS_INFO[cls].label} класс ({cls === StationClass.EXTRA ? 'ВН' : cls})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Ordinate / KM Input */}
+                    <div className="flex items-center gap-1.5 w-44">
+                      <span className="text-xs text-slate-500 font-semibold shrink-0">км:</span>
+                      <input
+                        type="text"
+                        value={editKm}
+                        onChange={(e) => setEditKm(e.target.value)}
+                        placeholder="418,6"
+                        className="bg-white border border-slate-300 rounded px-2 py-1 text-xs text-slate-800 focus:outline-none focus:border-[#e21a1a] w-full"
+                        id="edit-km-input"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center gap-2.5">
+                    <h2 className="text-xl font-bold text-slate-900 font-sans tracking-tight" id="station-title">{station.name}</h2>
+                    <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full border ${classInfo.color}`} id="station-class-badge">
+                      {classInfo.label} класс
+                    </span>
+                  </div>
+                  <div className="text-xs text-slate-500 mt-1 flex items-center gap-2 font-medium">
+                    <MapPin size={12} className="text-[#e21a1a]" />
+                    <span>Ордината: км {station.km} Смоленского территориального управления МЖД</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {/* Save / Edit Buttons */}
+            {isEditingCard ? (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleSaveCard}
+                  className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                  id="save-card-btn"
+                >
+                  <Check size={14} />
+                  Сохранить
+                </button>
+                <button
+                  onClick={() => {
+                    setIsEditingCard(false);
+                    setEditClass(station.classType);
+                    setEditKm(station.km);
+                    setEditDesc(station.description || '');
+                  }}
+                  className="px-3.5 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold rounded-lg text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  id="cancel-card-edit-btn"
+                >
+                  <X size={14} />
+                  Отмена
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setIsEditingCard(true)}
+                className="px-3.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 font-bold border border-slate-300 rounded-lg text-xs transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+                id="edit-card-toggle-btn"
+              >
+                <Edit2 size={13} className="text-[#e21a1a]" />
+                Редактировать карточку
+              </button>
+            )}
+
+            <div className="w-px h-6 bg-slate-200 mx-1" />
+
             {/* Saving indicator status */}
             {savingStatus === 'saving' && (
               <span className="text-xs text-slate-500 flex items-center gap-1.5 bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200" id="saving-status">
@@ -433,7 +560,7 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
             {savingStatus === 'saved' && (
               <span className="text-xs text-emerald-700 flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200" id="saved-status">
                 <Check size={12} />
-                Сохранено локально
+                Сохранено
               </span>
             )}
             {savingStatus === 'error' && (
@@ -463,19 +590,6 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
               {/* Tab Selector Buttons */}
               <div className="flex flex-col gap-1.5" id="tab-selectors">
                 <button
-                  id="tab-btn-staff"
-                  onClick={() => setActiveTab('staff')}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
-                    activeTab === 'staff' 
-                      ? 'bg-[#e21a1a] text-white shadow-lg shadow-red-500/15' 
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
-                  }`}
-                >
-                  <Users size={16} />
-                  <span>ШТАТ СТАНЦИИ</span>
-                </button>
-
-                <button
                   id="tab-btn-scheme"
                   onClick={() => setActiveTab('scheme')}
                   className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
@@ -486,6 +600,19 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                 >
                   <FileText size={16} />
                   <span>СХЕМА СТАНЦИИ</span>
+                </button>
+
+                <button
+                  id="tab-btn-staff"
+                  onClick={() => setActiveTab('staff')}
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-semibold tracking-wide transition-all cursor-pointer ${
+                    activeTab === 'staff' 
+                      ? 'bg-[#e21a1a] text-white shadow-lg shadow-red-500/15' 
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                  }`}
+                >
+                  <Users size={16} />
+                  <span>ШТАТ СТАНЦИИ</span>
                 </button>
 
                 <button
@@ -515,10 +642,32 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                 </button>
               </div>
 
-              {/* Station Class Description */}
-              <div className="bg-white rounded-xl p-4 border border-slate-200 text-xs shadow-sm" id="station-class-description-card">
-                <div className="font-bold text-slate-800 mb-1">Справка о классе:</div>
-                <p className="text-slate-500 leading-relaxed">{classInfo.desc}</p>
+              {/* Station Description Card */}
+              <div className="bg-white rounded-xl p-4 border border-slate-200 text-xs shadow-sm flex flex-col gap-2" id="station-description-card">
+                {isEditingCard ? (
+                  <>
+                    <div className="font-bold text-slate-800">Короткая справка:</div>
+                    <textarea
+                      value={editDesc}
+                      onChange={(e) => setEditDesc(e.target.value)}
+                      rows={5}
+                      placeholder="Введите краткую информацию о станции, ее особенностях, путевом развитии или истории..."
+                      className="w-full bg-slate-50 border border-slate-300 rounded p-2 text-xs text-slate-800 focus:outline-none focus:border-[#e21a1a] resize-none"
+                      id="edit-description-textarea"
+                    />
+                  </>
+                ) : (
+                  <>
+                    <div className="font-bold text-slate-800">Короткая справка:</div>
+                    <p className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                      {station.description || 'Справка не заполнена. Вы можете нажать «Редактировать карточку» вверху, чтобы добавить описание станции.'}
+                    </p>
+                    <div className="mt-2 pt-2 border-t border-slate-100 font-bold text-[10px] text-slate-400 uppercase tracking-wider">
+                      Справочно ({classInfo.label} класс):
+                    </div>
+                    <p className="text-slate-400 leading-relaxed text-[11px]">{classInfo.desc}</p>
+                  </>
+                )}
               </div>
 
             </div>
@@ -612,8 +761,7 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                         <tr className="bg-slate-50 border-b border-slate-200 text-[11px] font-bold font-mono tracking-wider text-slate-500 uppercase">
                           <th className="py-3 px-4">Должность</th>
                           <th className="py-3 px-4">ФИО сотрудника</th>
-                          <th className="py-3 px-4">Телефон</th>
-                          <th className="py-3 px-4">E-mail</th>
+                          <th className="py-3 px-4">Телефоны (через запятую)</th>
                           <th className="py-3 px-4 text-center w-28">Действия</th>
                         </tr>
                       </thead>
@@ -653,28 +801,38 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                               {/* Phone */}
                               <td className="py-2.5 px-4 font-mono text-slate-500">
                                 {isEditing ? (
-                                  <input
-                                    type="text"
-                                    value={item.phone}
-                                    onChange={(e) => handleUpdateStaff(item.id, 'phone', e.target.value)}
-                                    className="w-full bg-white border border-slate-200 px-2 py-1 rounded text-xs text-slate-800 focus:outline-none focus:border-[#e21a1a]"
-                                  />
+                                  <div className="flex flex-col gap-1">
+                                    <input
+                                      type="text"
+                                      value={item.phone}
+                                      onChange={(e) => handleUpdateStaff(item.id, 'phone', e.target.value)}
+                                      className="w-full bg-white border border-slate-200 px-2 py-1 rounded text-[11px] text-slate-800 focus:outline-none focus:border-[#e21a1a]"
+                                      placeholder="Номера через запятую (например: +7 999 123-45-67, 4-22-11)"
+                                    />
+                                    <span className="text-[10px] text-slate-400 font-sans">
+                                      Можно указать несколько номеров через запятую
+                                    </span>
+                                  </div>
                                 ) : (
-                                  item.phone || '—'
-                                )}
-                              </td>
-
-                              {/* Email */}
-                              <td className="py-2.5 px-4 font-mono text-slate-500">
-                                {isEditing ? (
-                                  <input
-                                    type="email"
-                                    value={item.email}
-                                    onChange={(e) => handleUpdateStaff(item.id, 'email', e.target.value)}
-                                    className="w-full bg-white border border-slate-200 px-2 py-1 rounded text-xs text-slate-800 focus:outline-none focus:border-[#e21a1a]"
-                                  />
-                                ) : (
-                                  item.email || '—'
+                                  item.phone ? (
+                                    <div className="flex flex-wrap gap-1">
+                                      {item.phone.split(/[,;/]+/).map((ph, idx) => {
+                                        const cleanPh = ph.trim();
+                                        if (!cleanPh) return null;
+                                        return (
+                                          <span 
+                                            key={idx} 
+                                            className="inline-flex items-center gap-1 px-2 py-0.5 bg-slate-100 hover:bg-slate-200/80 text-slate-700 font-semibold rounded-md text-[11px] border border-slate-200 transition-colors shadow-2xs"
+                                          >
+                                            <span className="w-1.5 h-1.5 bg-[#e21a1a] rounded-full animate-pulse" />
+                                            {cleanPh}
+                                          </span>
+                                        );
+                                      })}
+                                    </div>
+                                  ) : (
+                                    <span className="text-slate-300">—</span>
+                                  )
                                 )}
                               </td>
 
@@ -749,7 +907,7 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                 </div>
 
                 {schemeDoc ? (
-                  <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200" id="scheme-pdf-viewport-card">
+                  <div className="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200" id="scheme-pdf-viewport-card">
                     {/* File metadata */}
                     <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-200 pb-3" id="scheme-pdf-metadata">
                       <div className="flex items-center gap-2">
@@ -761,10 +919,44 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                       <button
                         id="remove-scheme-pdf-btn"
                         onClick={() => handleRemovePdf('scheme')}
-                        className="text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                        className="text-red-600 hover:text-red-700 font-bold cursor-pointer transition-colors"
                       >
                         Удалить схему
                       </button>
+                    </div>
+
+                    {/* Notice & Active Call-To-Action buttons */}
+                    <div className="bg-gradient-to-r from-red-50 to-slate-50 p-5 rounded-xl border border-red-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm" id="scheme-pdf-view-helpers">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-[#e21a1a]/10 text-[#e21a1a] rounded-xl shrink-0">
+                          <FileText size={26} className="animate-pulse" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Файл схемы PDF успешно подготовлен!</span>
+                          <span className="text-xs text-slate-500 mt-0.5 block max-w-md">
+                            В связи с ограничениями безопасности браузера для документов внутри фреймов, откройте путевую схему в новой вкладке.
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                        <a
+                          href={schemeUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-4.5 py-2.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/15 cursor-pointer text-center"
+                        >
+                          <FileText size={14} />
+                          Открыть во весь экран
+                        </a>
+                        <a
+                          href={schemeUrl}
+                          download={schemeDoc.fileName}
+                          className="px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200 shadow-sm cursor-pointer text-center"
+                        >
+                          <Download size={14} />
+                          Скачать PDF файл
+                        </a>
+                      </div>
                     </div>
 
                     {/* Integrated PDF iframe preview */}
@@ -815,7 +1007,7 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                 </div>
 
                 {traDoc ? (
-                  <div className="flex flex-col gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200" id="tra-pdf-viewport-card">
+                  <div className="flex flex-col gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200" id="tra-pdf-viewport-card">
                     {/* File metadata */}
                     <div className="flex items-center justify-between text-xs text-slate-500 border-b border-slate-200 pb-3" id="tra-pdf-metadata">
                       <div className="flex items-center gap-2">
@@ -827,10 +1019,44 @@ export default function StationPassportModal({ station, onClose }: StationPasspo
                       <button
                         id="remove-tra-pdf-btn"
                         onClick={() => handleRemovePdf('tra')}
-                        className="text-red-600 hover:text-red-700 font-semibold cursor-pointer"
+                        className="text-red-600 hover:text-red-700 font-bold cursor-pointer transition-colors"
                       >
                         Удалить ТРА
                       </button>
+                    </div>
+
+                    {/* Notice & Active Call-To-Action buttons */}
+                    <div className="bg-gradient-to-r from-red-50 to-slate-50 p-5 rounded-xl border border-red-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm" id="tra-pdf-view-helpers">
+                      <div className="flex items-center gap-4">
+                        <div className="p-3 bg-[#e21a1a]/10 text-[#e21a1a] rounded-xl shrink-0">
+                          <FileText size={26} className="animate-pulse" />
+                        </div>
+                        <div>
+                          <span className="text-sm font-bold text-slate-800 block">Файл ТРА PDF успешно подготовлен!</span>
+                          <span className="text-xs text-slate-500 mt-0.5 block max-w-md">
+                            В связи с ограничениями безопасности браузера для документов внутри фреймов, откройте ТРА в новой вкладке.
+                          </span>
+                        </div>
+                      </div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                        <a
+                          href={traUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="px-4.5 py-2.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/15 cursor-pointer text-center"
+                        >
+                          <FileText size={14} />
+                          Открыть во весь экран
+                        </a>
+                        <a
+                          href={traUrl}
+                          download={traDoc.fileName}
+                          className="px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200 shadow-sm cursor-pointer text-center"
+                        >
+                          <Download size={14} />
+                          Скачать PDF файл
+                        </a>
+                      </div>
                     </div>
 
                     {/* Integrated PDF iframe preview */}
