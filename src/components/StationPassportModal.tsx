@@ -925,48 +925,57 @@ export default function StationPassportModal({ station, onClose, onUpdateStation
                       </button>
                     </div>
 
-                    {/* Notice & Active Call-To-Action buttons */}
-                    <div className="bg-gradient-to-r from-red-50 to-slate-50 p-5 rounded-xl border border-red-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm" id="scheme-pdf-view-helpers">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-[#e21a1a]/10 text-[#e21a1a] rounded-xl shrink-0">
-                          <FileText size={26} className="animate-pulse" />
+                    {/* Control Toolbar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs" id="scheme-pdf-view-helpers">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-[#e21a1a]/10 text-[#e21a1a] rounded-lg">
+                          <FileText size={18} />
                         </div>
                         <div>
-                          <span className="text-sm font-bold text-slate-800 block">Файл схемы PDF успешно подготовлен!</span>
-                          <span className="text-xs text-slate-500 mt-0.5 block max-w-md">
-                            В связи с ограничениями безопасности браузера для документов внутри фреймов, откройте путевую схему в новой вкладке.
-                          </span>
+                          <span className="text-xs font-bold text-slate-700 block">Интегрированный просмотр документа</span>
+                          <span className="text-[11px] text-slate-500 block">Если ваш браузер блокирует встроенный просмотр, используйте кнопки управления справа.</span>
                         </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                      <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0 font-sans">
                         <a
                           href={schemeUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-4.5 py-2.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/15 cursor-pointer text-center"
+                          className="px-3.5 py-2 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-red-500/10 cursor-pointer"
                         >
-                          <FileText size={14} />
-                          Открыть во весь экран
+                          <FileText size={12} />
+                          Во весь экран
                         </a>
                         <a
                           href={schemeUrl}
                           download={schemeDoc.fileName}
-                          className="px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200 shadow-sm cursor-pointer text-center"
+                          className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 border border-slate-200 shadow-2xs cursor-pointer"
                         >
-                          <Download size={14} />
-                          Скачать PDF файл
+                          <Download size={12} />
+                          Скачать PDF
                         </a>
                       </div>
                     </div>
 
-                    {/* Integrated PDF iframe preview */}
-                    <div className="bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex flex-col items-center justify-center min-h-[480px]" id="scheme-pdf-frame-wrapper">
-                      <iframe 
-                        src={schemeUrl} 
-                        className="w-full h-[500px]" 
-                        title="Техническая схема путевого развития"
-                        referrerPolicy="no-referrer"
-                      />
+                    {/* Integrated PDF preview */}
+                    <div className="bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex flex-col min-h-[550px] shadow-inner" id="scheme-pdf-frame-wrapper">
+                      <object
+                        data={schemeUrl}
+                        type="application/pdf"
+                        className="w-full h-[550px]"
+                        id="scheme-pdf-object"
+                      >
+                        <embed
+                          src={schemeUrl}
+                          type="application/pdf"
+                          className="w-full h-[550px]"
+                        />
+                        <iframe 
+                          src={schemeUrl} 
+                          className="w-full h-[550px] border-0" 
+                          title="Техническая схема путевого развития"
+                        />
+                      </object>
                     </div>
                   </div>
                 ) : (
@@ -1025,48 +1034,57 @@ export default function StationPassportModal({ station, onClose, onUpdateStation
                       </button>
                     </div>
 
-                    {/* Notice & Active Call-To-Action buttons */}
-                    <div className="bg-gradient-to-r from-red-50 to-slate-50 p-5 rounded-xl border border-red-100 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm" id="tra-pdf-view-helpers">
-                      <div className="flex items-center gap-4">
-                        <div className="p-3 bg-[#e21a1a]/10 text-[#e21a1a] rounded-xl shrink-0">
-                          <FileText size={26} className="animate-pulse" />
+                    {/* Control Toolbar */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs" id="tra-pdf-view-helpers">
+                      <div className="flex items-center gap-3">
+                        <div className="p-2 bg-[#e21a1a]/10 text-[#e21a1a] rounded-lg">
+                          <FileText size={18} />
                         </div>
                         <div>
-                          <span className="text-sm font-bold text-slate-800 block">Файл ТРА PDF успешно подготовлен!</span>
-                          <span className="text-xs text-slate-500 mt-0.5 block max-w-md">
-                            В связи с ограничениями безопасности браузера для документов внутри фреймов, откройте ТРА в новой вкладке.
-                          </span>
+                          <span className="text-xs font-bold text-slate-700 block">Интегрированный просмотр документа</span>
+                          <span className="text-[11px] text-slate-500 block">Если ваш браузер блокирует встроенный просмотр, используйте кнопки управления справа.</span>
                         </div>
                       </div>
-                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full md:w-auto shrink-0">
+                      <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0 font-sans">
                         <a
                           href={traUrl}
                           target="_blank"
                           rel="noreferrer"
-                          className="px-4.5 py-2.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/15 cursor-pointer text-center"
+                          className="px-3.5 py-2 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 shadow-sm shadow-red-500/10 cursor-pointer"
                         >
-                          <FileText size={14} />
-                          Открыть во весь экран
+                          <FileText size={12} />
+                          Во весь экран
                         </a>
                         <a
                           href={traUrl}
                           download={traDoc.fileName}
-                          className="px-4.5 py-2.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-xl text-xs transition-all flex items-center justify-center gap-2 border border-slate-200 shadow-sm cursor-pointer text-center"
+                          className="px-3.5 py-2 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-[11px] transition-all flex items-center gap-1.5 border border-slate-200 shadow-2xs cursor-pointer"
                         >
-                          <Download size={14} />
-                          Скачать PDF файл
+                          <Download size={12} />
+                          Скачать PDF
                         </a>
                       </div>
                     </div>
 
-                    {/* Integrated PDF iframe preview */}
-                    <div className="bg-slate-100 rounded-lg overflow-hidden border border-slate-200 flex flex-col items-center justify-center min-h-[480px]" id="tra-pdf-frame-wrapper">
-                      <iframe 
-                        src={traUrl} 
-                        className="w-full h-[500px]" 
-                        title="Техническо-распорядительный акт станции"
-                        referrerPolicy="no-referrer"
-                      />
+                    {/* Integrated PDF preview */}
+                    <div className="bg-slate-100 rounded-xl overflow-hidden border border-slate-200 flex flex-col min-h-[550px] shadow-inner" id="tra-pdf-frame-wrapper">
+                      <object
+                        data={traUrl}
+                        type="application/pdf"
+                        className="w-full h-[550px]"
+                        id="tra-pdf-object"
+                      >
+                        <embed
+                          src={traUrl}
+                          type="application/pdf"
+                          className="w-full h-[550px]"
+                        />
+                        <iframe 
+                          src={traUrl} 
+                          className="w-full h-[550px] border-0" 
+                          title="Техническо-распорядительный акт станции"
+                        />
+                      </object>
                     </div>
                   </div>
                 ) : (
