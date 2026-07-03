@@ -79,22 +79,44 @@ export default function App() {
 
         const staffByStation: Record<string, StationStaff[]> = {};
 
+        // Normalizer function to enable robust matching for station names
+        const normalizeName = (str: string) => {
+          let clean = str.trim().toLowerCase();
+          // Remove prefixes/types at the beginning like "р.", "ст.", "о.п."
+          clean = clean.replace(/^(р\.|р\s+|ст\.|ст\s+|о\.п\.|о\.п\s+)/g, '');
+          // Replace ё with е, and strip all non-alphanumeric characters
+          return clean
+            .replace(/ё/g, 'е')
+            .replace(/[^a-zа-я0-9]/g, '');
+        };
+
         for (let i = startRow; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.length < 2) continue;
 
-          const rowStationName = String(row[0] || '').trim();
+          const rowStationNameRaw = String(row[0] || '').trim();
+          if (!rowStationNameRaw) continue;
+
+          // Extract station name by removing everything in parentheses, e.g. "Смоленск (1 класс)" -> "Смоленск"
+          let rowStationName = rowStationNameRaw.replace(/\s*\([^)]*\)/g, '').trim();
           const position = String(row[1] || '').trim();
           const fullName = String(row[2] || '').trim();
           const phone = String(row[3] || '').trim();
 
           if (!rowStationName || !position) continue;
 
-          const cleanRowStation = rowStationName.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
-          const matchedStation = stations.find(s => {
-            const cleanSName = s.name.toLowerCase().replace(/[^a-zа-я0-9]/g, '');
-            return cleanSName === cleanRowStation || cleanSName.includes(cleanRowStation) || cleanRowStation.includes(cleanSName);
-          });
+          const cleanRowStation = normalizeName(rowStationName);
+
+          // Find station using exact normalized name first
+          let matchedStation = stations.find(s => normalizeName(s.name) === cleanRowStation);
+
+          // Fallback to substring matching if exact match not found
+          if (!matchedStation) {
+            matchedStation = stations.find(s => {
+              const cleanSName = normalizeName(s.name);
+              return cleanSName.includes(cleanRowStation) || cleanRowStation.includes(cleanSName);
+            });
+          }
 
           if (matchedStation) {
             if (!staffByStation[matchedStation.id]) {
@@ -111,22 +133,21 @@ export default function App() {
 
         const matchedStationIds = Object.keys(staffByStation);
         if (matchedStationIds.length === 0) {
-          alert('Не удалось сопоставить ни одну строку со станциями Смоленского региона. Пожалуйста, проверьте, что в первой колонке указаны корректные названия станций.');
+          alert('Не удалось сопоставить ни одну строку со станциями Смоленского региона. Пожалуйста, убедитесь, что в первой колонке указано название станции (класс в скобках необязателен).');
           return;
         }
 
         let totalImported = 0;
         for (const stationId of matchedStationIds) {
           const newStaff = staffByStation[stationId];
-          const existingStaff = await getStaff(stationId) || DEFAULT_STAFF[stationId] || [];
-          const merged = [...existingStaff, ...newStaff];
-          await saveStaff(stationId, merged);
+          // We overwrite the staff for the matched stations to ensure correctness and avoid duplication
+          await saveStaff(stationId, newStaff);
           totalImported += newStaff.length;
         }
 
-        alert(`Импорт завершен успешно!\nРазложено работников: ${totalImported} по ${matchedStationIds.length} станциям.`);
+        alert(`Импорт завершен успешно!\nЗаписано работников: ${totalImported} по ${matchedStationIds.length} станциям.\nДанные по этим станциям были успешно обновлены.`);
       } catch (err) {
-        alert('Ошибка при чтении Excel файла. Убедитесь в корректности структуры (1-я колонка: Название станции, 2-я: Должность, 3-я: ФИО, 4-я: Рабочий телефон).');
+        alert('Ошибка при чтении Excel файла. Убедитесь в корректности структуры (1-я колонка: Название станции (класс в скобках), 2-я: Должность, 3-я: ФИО, 4-я: Контакты (необязательно)).');
         console.error(err);
       }
     };
@@ -135,12 +156,12 @@ export default function App() {
   };
 
   const handleDownloadGlobalStaffTemplate = () => {
-    const header = ['Станция', 'Должность', 'ФИО', 'Рабочий телефон'];
+    const header = ['Станция (класс)', 'Должность', 'ФИО', 'Рабочий телефон'];
     const templateData = [
-      ['Смоленск', 'Начальник станции', 'Иванов Сергей Петрович', '+7 (910) 123-45-67, 2-11-22'],
-      ['Смоленск', 'Дежурный по станции', 'Петров Алексей Владимирович', '+7 (910) 765-43-21'],
-      ['Вязьма', 'Начальник станции', 'Александров Илья Андреевич', '+7 (905) 698-22-33'],
-      ['Сафоново', 'Начальник станции', 'Григорьев Денис Сергеевич', '+7 (915) 634-88-99']
+      ['Смоленск (1 класс)', 'Начальник станции', 'Иванов Сергей Петрович', '+7 (910) 123-45-67, 2-11-22'],
+      ['Смоленск (1 класс)', 'Дежурный по станции', 'Петров Алексей Владимирович', '+7 (910) 765-43-21'],
+      ['Вязьма (Внеклассная)', 'Начальник станции', 'Александров Илья Андреевич', '+7 (905) 698-22-33'],
+      ['Сафоново (2 класс)', 'Начальник станции', 'Григорьев Денис Сергеевич', '+7 (915) 634-88-99']
     ];
 
     const ws = XLSX.utils.aoa_to_sheet([header, ...templateData]);
