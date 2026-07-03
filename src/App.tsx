@@ -9,13 +9,13 @@ import StationPassportModal from './components/StationPassportModal';
 import SchemeEditor from './components/SchemeEditor';
 import TabletInstallationModal from './components/TabletInstallationModal';
 import { STATIONS, STATION_CLASS_INFO, DEFAULT_STAFF } from './data/stations';
-import { StationData, StationClass, StationStaff } from './types';
+import { StationData, StationClass, StationStaff, StationDocument } from './types';
 import { 
   Building2, Train, Database, HelpCircle, 
   MapPin, Clipboard, ArrowRight, Layers, FileText,
   Download, Upload, RefreshCw, Check, AlertCircle, Sliders, Tablet
 } from 'lucide-react';
-import { exportBackup, importBackup, getStaff, saveStaff } from './lib/db';
+import { exportBackup, importBackup, getStaff, saveStaff, saveDocument } from './lib/db';
 import * as XLSX from 'xlsx';
 
 export default function App() {
@@ -152,6 +152,79 @@ export default function App() {
       }
     };
     reader.readAsArrayBuffer(file);
+    e.target.value = '';
+  };
+
+  const handleBulkSchemesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    let matchedCount = 0;
+    const unmatchedFiles: string[] = [];
+
+    const normalizeName = (str: string) => {
+      let clean = str.trim().toLowerCase();
+      // Remove prefixes/types at the beginning like "р.", "ст.", "о.п."
+      clean = clean.replace(/^(р\.|р\s+|ст\.|ст\s+|о\.п\.|о\.п\s+)/g, '');
+      // Remove everything in parentheses, e.g. "Смоленск (1 класс)" -> "Смоленск"
+      clean = clean.replace(/\s*\([^)]*\)/g, '').trim();
+      // Replace ё with е, and strip all non-alphanumeric characters
+      return clean
+        .replace(/ё/g, 'е')
+        .replace(/[^a-zа-я0-9]/g, '');
+    };
+
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      if (!isPdf) continue;
+
+      const baseName = file.name.replace(/\.[^/.]+$/, "");
+      const cleanFileName = normalizeName(baseName);
+
+      if (!cleanFileName) continue;
+
+      let matchedStation = stations.find(s => normalizeName(s.name) === cleanFileName);
+
+      if (!matchedStation) {
+        matchedStation = stations.find(s => {
+          const cleanSName = normalizeName(s.name);
+          return cleanSName.includes(cleanFileName) || cleanFileName.includes(cleanSName);
+        });
+      }
+
+      if (matchedStation) {
+        try {
+          const doc: StationDocument = {
+            stationId: matchedStation.id,
+            docType: 'scheme',
+            fileName: file.name,
+            fileBlob: file,
+            uploadedAt: new Date().toLocaleDateString('ru-RU') + ' ' + new Date().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+          };
+          await saveDocument(doc);
+          matchedCount++;
+        } catch (err) {
+          console.error(`Error saving document for ${matchedStation.name}:`, err);
+        }
+      } else {
+        unmatchedFiles.push(file.name);
+      }
+    }
+
+    if (matchedCount > 0) {
+      let msg = `Успешно импортировано и разложено по карточкам схем: ${matchedCount}.`;
+      if (unmatchedFiles.length > 0) {
+        msg += `\n\nНе удалось сопоставить файлы (${unmatchedFiles.length} шт.):\n` + unmatchedFiles.slice(0, 10).join('\n');
+        if (unmatchedFiles.length > 10) {
+          msg += `\n...и еще ${unmatchedFiles.length - 10} файлов.`;
+        }
+      }
+      alert(msg);
+    } else {
+      alert(`Не удалось сопоставить ни один файл со станциями. Проверьте, что названия файлов соответствуют названиям станций.\n\nЗагружено файлов: ${files.length}\nПримеры файлов: ${Array.from(files).slice(0, 3).map((f: any) => f.name).join(', ')}`);
+    }
+
     e.target.value = '';
   };
 
@@ -468,6 +541,23 @@ export default function App() {
                     type="file"
                     accept=".xlsx, .xls"
                     onChange={handleGlobalStaffExcelUpload}
+                    className="hidden"
+                  />
+                </label>
+
+                {/* Bulk PDF Schemes Upload Button */}
+                <label 
+                  id="bulk-schemes-pdf-label"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-red-500/10 font-bold"
+                  title="Выбрать несколько PDF-файлов со схемами путевого развития станций (название файла должно соответствовать названию станции)"
+                >
+                  <FileText size={13} />
+                  <span>Импорт схем станций (PDF)</span>
+                  <input
+                    type="file"
+                    accept=".pdf"
+                    multiple
+                    onChange={handleBulkSchemesUpload}
                     className="hidden"
                   />
                 </label>
