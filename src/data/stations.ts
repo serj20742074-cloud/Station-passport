@@ -147,7 +147,7 @@ export const DEFAULT_INDICATORS: Record<string, StationIndicator[]> = {
   smolensk: [
     { id: '1', metric: 'Погрузка грузов', unit: 'тонн', plan: 12000, fact: 12450, percent: 103.8 },
     { id: '2', metric: 'Выгрузка грузов', unit: 'тонн', plan: 18000, fact: 17890, percent: 99.4 },
-    { id: '3', metric: 'Простой под одной грузовой операцией', unit: 'час', plan: 24.5, fact: 23.8, percent: 102.9 }, // 102.9% efficiency (less time is better)
+    { id: '3', metric: 'Простой под одной грузовой операцией', unit: 'час', plan: 24.5, fact: 23.8, percent: 97.1 },
     { id: '4', metric: 'Прием поездов', unit: 'поездов', plan: 450, fact: 462, percent: 102.7 },
     { id: '5', metric: 'Отправление поездов', unit: 'поездов', plan: 450, fact: 460, percent: 102.2 },
     { id: '6', metric: 'Пассажиропоток дальнего следования', unit: 'чел/сут', plan: 1500, fact: 1620, percent: 108.0 },
@@ -155,8 +155,8 @@ export const DEFAULT_INDICATORS: Record<string, StationIndicator[]> = {
   ],
   smolensk_sort: [
     { id: '1', metric: 'Переработка вагонов на горке', unit: 'вагонов/сут', plan: 2800, fact: 2950, percent: 105.4 },
-    { id: '2', metric: 'Простой транзитного вагона с переработкой', unit: 'час', plan: 8.5, fact: 8.1, percent: 104.9 },
-    { id: '3', metric: 'Простой транзитного вагона без переработки', unit: 'час', plan: 2.1, fact: 1.9, percent: 110.5 },
+    { id: '2', metric: 'Простой транзитного вагона с переработкой', unit: 'час', plan: 8.5, fact: 8.1, percent: 95.3 },
+    { id: '3', metric: 'Простой транзитного вагона без переработки', unit: 'час', plan: 2.1, fact: 1.9, percent: 90.5 },
     { id: '4', metric: 'Погрузка грузов', unit: 'тонн', plan: 5000, fact: 5200, percent: 104.0 },
     { id: '5', metric: 'Выгрузка грузов', unit: 'тонн', plan: 8500, fact: 8900, percent: 104.7 },
   ],
@@ -170,12 +170,12 @@ export const DEFAULT_INDICATORS: Record<string, StationIndicator[]> = {
   safonovo: [
     { id: '1', metric: 'Погрузка грузов', unit: 'тонн', plan: 4500, fact: 4800, percent: 106.7 },
     { id: '2', metric: 'Выгрузка грузов', unit: 'тонн', plan: 6000, fact: 5910, percent: 98.5 },
-    { id: '3', metric: 'Простой вагонов', unit: 'час', plan: 18.0, fact: 17.2, percent: 104.7 },
+    { id: '3', metric: 'Простой вагонов', unit: 'час', plan: 18.0, fact: 17.2, percent: 95.6 },
   ],
   roslavl_1: [
     { id: '1', metric: 'Погрузка грузов', unit: 'тонн', plan: 6500, fact: 6720, percent: 103.4 },
     { id: '2', metric: 'Выгрузка грузов', unit: 'тонн', plan: 5000, fact: 5120, percent: 102.4 },
-    { id: '3', metric: 'Оборот местного вагона', unit: 'сут', plan: 1.5, fact: 1.4, percent: 107.1 },
+    { id: '3', metric: 'Оборот местного вагона', unit: 'сут', plan: 1.5, fact: 1.4, percent: 93.3 },
   ],
   fayansovaya: [
     { id: '1', metric: 'Погрузка грузов', unit: 'тонн', plan: 3000, fact: 3100, percent: 103.3 },

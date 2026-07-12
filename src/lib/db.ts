@@ -253,6 +253,15 @@ export async function exportBackup(): Promise<string> {
   return JSON.stringify(backup, null, 2);
 }
 
+export async function getAllIndicatorsMap(): Promise<{ [stationId: string]: StationIndicator[] }> {
+  const entries = await getAllFromStore('indicators');
+  const map: { [key: string]: StationIndicator[] } = {};
+  for (const entry of entries) {
+    map[entry.key as string] = entry.value as StationIndicator[];
+  }
+  return map;
+}
+
 export async function importBackup(jsonString: string): Promise<void> {
   const backup = JSON.parse(jsonString) as BackupData;
   if (!backup || backup.version !== 1) {

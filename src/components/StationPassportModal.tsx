@@ -1153,7 +1153,10 @@ export default function StationPassportModal({ station, onClose, onUpdateStation
                 {indicators.length > 0 && (
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-3" id="indicators-bento-summary">
                     {indicators.slice(0, 3).map((item) => {
-                      const isHigh = item.percent >= 100;
+                      const isIdle = item.metric.toLowerCase().includes('простой') || item.metric.toLowerCase().includes('оборот');
+                      const isSuccess = item.plan === 0 
+                        ? true 
+                        : (isIdle ? item.percent <= 100 : item.percent >= 100);
                       return (
                         <div key={`card-${item.id}`} className="bg-slate-50 border border-slate-200 p-4 rounded-xl flex items-center justify-between shadow-sm" id={`kpi-card-${item.id}`}>
                           <div>
@@ -1162,7 +1165,7 @@ export default function StationPassportModal({ station, onClose, onUpdateStation
                             <span className="text-[10px] text-slate-400">План: {item.plan} {item.unit}</span>
                           </div>
                           <div className={`text-sm font-mono font-bold px-2 py-1 rounded border ${
-                            isHigh ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-[#e21a1a] bg-red-50 border-red-200'
+                            isSuccess ? 'text-emerald-700 bg-emerald-50 border-emerald-200' : 'text-[#e21a1a] bg-red-50 border-red-200'
                           }`}>
                             {item.percent}%
                           </div>
@@ -1195,7 +1198,10 @@ export default function StationPassportModal({ station, onClose, onUpdateStation
                       <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
                         {indicators.map((item) => {
                           const isEditing = editingIndicatorId === item.id;
-                          const isSuccess = item.percent >= 100;
+                          const isIdle = item.metric.toLowerCase().includes('простой') || item.metric.toLowerCase().includes('оборот');
+                          const isSuccess = item.plan === 0 
+                            ? true 
+                            : (isIdle ? item.percent <= 100 : item.percent >= 100);
                           return (
                             <tr key={item.id} className="hover:bg-slate-50/50 transition-colors" id={`indicator-row-${item.id}`}>
                               {/* Indicator Metric Name */}

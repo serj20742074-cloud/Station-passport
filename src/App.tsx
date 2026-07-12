@@ -8,14 +8,15 @@ import InteractiveMap from './components/InteractiveMap';
 import StationPassportModal from './components/StationPassportModal';
 import SchemeEditor from './components/SchemeEditor';
 import TabletInstallationModal from './components/TabletInstallationModal';
+import WorkAnalysis from './components/WorkAnalysis';
 import { STATIONS, STATION_CLASS_INFO, DEFAULT_STAFF } from './data/stations';
-import { StationData, StationClass, StationStaff, StationDocument } from './types';
+import { StationData, StationClass, StationStaff, StationDocument, StationIndicator } from './types';
 import { 
   Building2, Train, Database, HelpCircle, 
   MapPin, Clipboard, ArrowRight, Layers, FileText,
-  Download, Upload, RefreshCw, Check, AlertCircle, Sliders, Tablet
+  Download, Upload, RefreshCw, Check, AlertCircle, Sliders, Tablet, BarChart2
 } from 'lucide-react';
-import { exportBackup, importBackup, getStaff, saveStaff, saveDocument } from './lib/db';
+import { exportBackup, importBackup, getStaff, saveStaff, saveDocument, saveIndicators } from './lib/db';
 import * as XLSX from 'xlsx';
 
 export default function App() {
@@ -36,7 +37,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isEditMode, setIsEditMode] = useState(false);
   const [isTabletModalOpen, setIsTabletModalOpen] = useState(false);
-  const [activeMainTab, setActiveMainTab] = useState<'map' | 'registry'>('map');
+  const [activeMainTab, setActiveMainTab] = useState<'map' | 'registry' | 'analytics'>('map');
   
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -225,6 +226,287 @@ export default function App() {
       alert(`Не удалось сопоставить ни один файл со станциями. Проверьте, что названия файлов соответствуют названиям станций.\n\nЗагружено файлов: ${files.length}\nПримеры файлов: ${Array.from(files).slice(0, 3).map((f: any) => f.name).join(', ')}`);
     }
 
+    e.target.value = '';
+  };
+
+  const handleDownloadGlobalIndicatorsTemplate = () => {
+    const row1 = ['№', 'Станции', 'Простой местных вагонов', '', '', '', '', '', '', '', '', '', 'Простой транзитных', '', 'Рабочий парк', 'Коэфф. сдвоенных', 'ПОГРУЗКА', '', '', '', '', '', '', '', '', '', '', 'ВЫГРУЗКА', '', ''];
+    const row2 = ['', '', 'Факт Июль 2025', '', 'Факт май 2026', '', 'Факт Июнь 2026', '', 'Технологическая норма', '', 'План Июль 2026', '', 'С пер', 'Без пер', 'Июнь без учета путей н.о.', 'Порож операций', 'Коэфф.', 'Факт', 'План', 'Тонны', 'ПО РОДАМ', '', '', '', '', '', '', 'Факт', 'План', 'Тонны'];
+    const row3 = ['', '', 'Общий', 'на отв. ОАО"РЖД"', 'Общий', 'на отв. ОАО"РЖД"', 'Общий', 'на отв. ОАО"РЖД"', 'Общий', 'на отв. ОАО"РЖД"', 'Общий', 'на отв. ОАО"РЖД"', '', '', '', '', '', '', '', '', 'ВС', 'КР', 'ПЛ', 'ПВ', 'ЦС', 'РФ', 'ПР', '', '', ''];
+
+    const sampleData = [
+      ['1', 'Смоленск (1 класс)', '100,50', '4,00', '110,20', '5,00', '132,57', '35,97', '15,76', '7,59', '124,00', '21,00', '157', '150', '49', '40', '1,131', '1,7', '1,7', '13,0', '1,7', '0,4', '3,6', '9,0', '11,3', '0,4', '3,6', '7,3', '28', '0,0'],
+      ['2', 'Вязьма (Внеклассная)', '316,61', '59,31', '167,01', '44,25', '239,94', '81,96', '11,90', '9,73', '172,00', '19,00', '102', '67', '55', '30', '1,100', '1,6', '1,6', '16,0', '0,2', '14,0', '1,8', '14,4', '0,2', '14,0', '0,2', '16', '12', '15,5'],
+      ['3', 'Сафоново (2 класс)', '97,19', '16,86', '193,31', '34,63', '176,57', '18,43', '13,84', '7,48', '176,00', '12,00', '15,00', '10', '202', '50', '1,000', '0,5', '0,5', '1,0', '1,0', '0,0', '1,0', '1,0', '0,0', '0,0', '0,0', '147', '140', '160'],
+      ['4', 'Гагарин (3 класс)', '122,47', '34,92', '132,57', '35,97', '169,78', '45,11', '15,76', '7,59', '124,00', '21,00', '157', '150', '49', '40', '1,131', '1,7', '1,7', '13,0', '0,4', '3,6', '9,0', '11,3', '0,4', '3,6', '7,3', '28', '25', '30,5']
+    ];
+
+    const aoa = [row1, row2, row3, ...sampleData];
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+
+    ws['!merges'] = [
+      { s: { r: 0, c: 2 }, e: { r: 0, c: 11 } },
+      { s: { r: 0, c: 12 }, e: { r: 0, c: 13 } },
+      { s: { r: 0, c: 16 }, e: { r: 0, c: 26 } },
+      { s: { r: 0, c: 27 }, e: { r: 0, c: 29 } },
+      { s: { r: 0, c: 0 }, e: { r: 2, c: 0 } },
+      { s: { r: 0, c: 1 }, e: { r: 2, c: 1 } },
+      { s: { r: 0, c: 14 }, e: { r: 1, c: 14 } },
+      { s: { r: 0, c: 15 }, e: { r: 1, c: 15 } },
+      { s: { r: 1, c: 2 }, e: { r: 1, c: 3 } },
+      { s: { r: 1, c: 4 }, e: { r: 1, c: 5 } },
+      { s: { r: 1, c: 6 }, e: { r: 1, c: 7 } },
+      { s: { r: 1, c: 8 }, e: { r: 1, c: 9 } },
+      { s: { r: 1, c: 10 }, e: { r: 1, c: 11 } },
+      { s: { r: 1, c: 20 }, e: { r: 1, c: 26 } }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Показатели работы');
+    XLSX.writeFile(wb, 'Шаблон_Показатели_Работы_Станций.xlsx');
+  };
+
+  const handleGlobalIndicatorsExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const firstSheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[firstSheetName];
+        
+        const rows = XLSX.utils.sheet_to_json<any[]>(worksheet, { header: 1 });
+        if (rows.length === 0) {
+          alert('Файл Excel пуст.');
+          return;
+        }
+
+        const headerRows: string[][] = [];
+        for (let r = 0; r < Math.min(rows.length, 5); r++) {
+          headerRows.push(rows[r] ? rows[r].map(cell => String(cell || '').trim()) : []);
+        }
+
+        for (let r = 0; r < headerRows.length; r++) {
+          let lastVal = '';
+          for (let c = 0; c < headerRows[r].length; c++) {
+            if (headerRows[r][c]) {
+              lastVal = headerRows[r][c];
+            } else if (lastVal && c > 0) {
+              headerRows[r][c] = lastVal;
+            }
+          }
+        }
+
+        const colPaths: string[] = [];
+        const numCols = Math.max(...headerRows.map(r => r.length));
+        for (let c = 0; c < numCols; c++) {
+          const pathParts: string[] = [];
+          for (let r = 0; r < headerRows.length; r++) {
+            const cellVal = headerRows[r][c];
+            if (cellVal && !pathParts.includes(cellVal)) {
+              pathParts.push(cellVal);
+            }
+          }
+          colPaths.push(pathParts.join(' -> ').toLowerCase());
+        }
+
+        const findColumnIndex = (keywords: string[], excludeKeywords: string[] = []) => {
+          let foundIdx = -1;
+          for (let c = 0; c < colPaths.length; c++) {
+            const path = colPaths[c];
+            const hasAllKeywords = keywords.every(kw => path.includes(kw));
+            const hasNoExcludeKeywords = excludeKeywords.every(kw => !path.includes(kw));
+            if (hasAllKeywords && hasNoExcludeKeywords) {
+              foundIdx = c;
+            }
+          }
+          return foundIdx;
+        };
+
+        const FALLBACK_MAP = {
+          localFactObj: 6,
+          localFactRzd: 7,
+          localPlanObj: 10,
+          localPlanRzd: 11,
+          transitWithPer: 12,
+          transitNoPer: 13,
+          workingPark: 14,
+          doubleCoeff: 16,
+          loadFact: 17,
+          loadPlan: 18,
+          loadTons: 19,
+          unloadFact: 27,
+          unloadPlan: 28,
+        };
+
+        const getIndex = (keywords: string[], fallbackIdx: number, excludeKeywords: string[] = []) => {
+          const idx = findColumnIndex(keywords, excludeKeywords);
+          return idx !== -1 ? idx : fallbackIdx;
+        };
+
+        const localFactObjIdx = getIndex(['простой местных', 'факт', 'общий'], FALLBACK_MAP.localFactObj);
+        
+        let localFactRzdIdx = findColumnIndex(['простой местных', 'факт', 'отв']);
+        if (localFactRzdIdx === -1) localFactRzdIdx = findColumnIndex(['простой местных', 'факт', 'ржд']);
+        if (localFactRzdIdx === -1) localFactRzdIdx = FALLBACK_MAP.localFactRzd;
+
+        let localPlanObjIdx = findColumnIndex(['простой местных', 'план', 'общий']);
+        if (localPlanObjIdx === -1) localPlanObjIdx = findColumnIndex(['простой местных', 'норма', 'общий']);
+        if (localPlanObjIdx === -1) localPlanObjIdx = FALLBACK_MAP.localPlanObj;
+
+        let localPlanRzdIdx = findColumnIndex(['простой местных', 'план', 'отв']);
+        if (localPlanRzdIdx === -1) localPlanRzdIdx = findColumnIndex(['простой местных', 'план', 'ржд']);
+        if (localPlanRzdIdx === -1) localPlanRzdIdx = findColumnIndex(['простой местных', 'норма', 'отв']);
+        if (localPlanRzdIdx === -1) localPlanRzdIdx = findColumnIndex(['простой местных', 'норма', 'ржд']);
+        if (localPlanRzdIdx === -1) localPlanRzdIdx = FALLBACK_MAP.localPlanRzd;
+
+        const transitWithPerIdx = getIndex(['простой транзитных', 'с пер'], FALLBACK_MAP.transitWithPer);
+        const transitNoPerIdx = getIndex(['простой транзитных', 'без пер'], FALLBACK_MAP.transitNoPer);
+        const workingParkIdx = getIndex(['рабочий парк'], FALLBACK_MAP.workingPark);
+        const doubleCoeffIdx = getIndex(['коэфф'], FALLBACK_MAP.doubleCoeff);
+        
+        const loadFactIdx = getIndex(['погрузка', 'факт'], FALLBACK_MAP.loadFact, ['тонн', 'родам']);
+        const loadPlanIdx = getIndex(['погрузка', 'план'], FALLBACK_MAP.loadPlan, ['тонн', 'родам']);
+        const loadTonsIdx = getIndex(['погрузка', 'тонн'], FALLBACK_MAP.loadTons);
+        
+        const unloadFactIdx = getIndex(['выгрузка', 'факт'], FALLBACK_MAP.unloadFact, ['родам']);
+        const unloadPlanIdx = getIndex(['выгрузка', 'план'], FALLBACK_MAP.unloadPlan, ['родам']);
+
+        let startRowIdx = 3;
+        for (let i = 0; i < Math.min(rows.length, 10); i++) {
+          const cell0 = String(rows[i]?.[0] || '').trim();
+          const cell1 = String(rows[i]?.[1] || '').trim();
+          if (cell0 && !isNaN(Number(cell0)) && cell1 && !cell1.toLowerCase().includes('станции') && !cell1.toLowerCase().includes('станция')) {
+            startRowIdx = i;
+            break;
+          }
+        }
+
+        const normalizeName = (str: string) => {
+          let clean = str.trim().toLowerCase();
+          clean = clean.replace(/^(р\.|р\s+|ст\.|ст\s+|о\.п\.|о\.п\s+)/g, '');
+          clean = clean.replace(/\s*\([^)]*\)/g, '').trim();
+          return clean
+            .replace(/ё/g, 'е')
+            .replace(/[^a-zа-я0-9]/g, '');
+        };
+
+        const parseVal = (v: any): number => {
+          if (v === undefined || v === null) return 0;
+          if (typeof v === 'number') return v;
+          const str = String(v).trim().replace(',', '.').replace(/\s+/g, '');
+          const num = parseFloat(str);
+          return isNaN(num) ? 0 : num;
+        };
+
+        let stationsImportedCount = 0;
+
+        for (let i = startRowIdx; i < rows.length; i++) {
+          const row = rows[i];
+          if (!row || row.length < 2) continue;
+
+          const stationNameRaw = String(row[1] || '').trim();
+          if (!stationNameRaw || stationNameRaw.toLowerCase().includes('итого') || stationNameRaw.toLowerCase().includes('всего')) continue;
+
+          const cleanRowStation = normalizeName(stationNameRaw);
+          if (!cleanRowStation) continue;
+
+          let matchedStation = stations.find(s => normalizeName(s.name) === cleanRowStation);
+          if (!matchedStation) {
+            matchedStation = stations.find(s => {
+              const cleanSName = normalizeName(s.name);
+              return cleanSName.includes(cleanRowStation) || cleanRowStation.includes(cleanSName);
+            });
+          }
+
+          if (matchedStation) {
+            const stationIndicators: StationIndicator[] = [];
+
+            const addInd = (metric: string, unit: string, p: number, f: number) => {
+              const percent = p > 0 ? Math.round((f / p) * 1000) / 10 : 100;
+              stationIndicators.push({
+                id: Math.random().toString(36).substr(2, 9),
+                metric,
+                unit,
+                plan: p,
+                fact: f,
+                percent
+              });
+            };
+
+            const pLocalObj = parseVal(row[localPlanObjIdx]);
+            const fLocalObj = parseVal(row[localFactObjIdx]);
+            if (pLocalObj > 0 || fLocalObj > 0) {
+              addInd('Простой местных вагонов (общий)', 'час', pLocalObj, fLocalObj);
+            }
+
+            const pLocalRzd = parseVal(row[localPlanRzdIdx]);
+            const fLocalRzd = parseVal(row[localFactRzdIdx]);
+            if (pLocalRzd > 0 || fLocalRzd > 0) {
+              addInd('Простой местных вагонов (на отв. ОАО "РЖД")', 'час', pLocalRzd, fLocalRzd);
+            }
+
+            const fTransitWith = parseVal(row[transitWithPerIdx]);
+            if (fTransitWith > 0) {
+              addInd('Простой транзитного вагона с переработкой', 'час', 0, fTransitWith);
+            }
+
+            const fTransitNo = parseVal(row[transitNoPerIdx]);
+            if (fTransitNo > 0) {
+              addInd('Простой транзитного вагона без переработки', 'час', 0, fTransitNo);
+            }
+
+            const fWorking = parseVal(row[workingParkIdx]);
+            if (fWorking > 0) {
+              addInd('Рабочий парк вагонов', 'ваг.', 0, fWorking);
+            }
+
+            const fDouble = parseVal(row[doubleCoeffIdx]);
+            if (fDouble > 0) {
+              addInd('Коэффициент сдвоенных операций', 'коэф.', 0, fDouble);
+            }
+
+            const pLoad = parseVal(row[loadPlanIdx]);
+            const fLoad = parseVal(row[loadFactIdx]);
+            if (pLoad > 0 || fLoad > 0) {
+              addInd('Погрузка грузов', 'ваг/сут', pLoad, fLoad);
+            }
+
+            const fLoadTons = parseVal(row[loadTonsIdx]);
+            if (fLoadTons > 0) {
+              addInd('Объем погрузки грузов', 'тонн', 0, fLoadTons);
+            }
+
+            const pUnload = parseVal(row[unloadPlanIdx]);
+            const fUnload = parseVal(row[unloadFactIdx]);
+            if (pUnload > 0 || fUnload > 0) {
+              addInd('Выгрузка вагонов', 'ваг/сут', pUnload, fUnload);
+            }
+
+            if (stationIndicators.length > 0) {
+              await saveIndicators(matchedStation.id, stationIndicators);
+              stationsImportedCount++;
+            }
+          }
+        }
+
+        if (stationsImportedCount > 0) {
+          alert(`Импорт показателей работы завершен успешно!\nЗагружены и распределены показатели по ${stationsImportedCount} станциям.`);
+          if (selectedStation) {
+            setSelectedStation({ ...selectedStation });
+          }
+        } else {
+          alert('Не удалось сопоставить ни одну строку со станциями Смоленского региона. Пожалуйста, проверьте, что во втором столбце корректно указаны названия станций.');
+        }
+      } catch (err) {
+        alert('Ошибка при чтении файла показателей. Убедитесь, что структура таблицы соответствует установленному образцу.');
+        console.error(err);
+      }
+    };
+    reader.readAsArrayBuffer(file);
     e.target.value = '';
   };
 
@@ -446,6 +728,18 @@ export default function App() {
             <Building2 size={14} />
             <span>РЕЕСТР СТАНЦИЙ РЕГИОНА</span>
           </button>
+          <button
+            onClick={() => setActiveMainTab('analytics')}
+            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg text-xs font-bold tracking-wide transition-all cursor-pointer ${
+              activeMainTab === 'analytics'
+                ? 'bg-[#e21a1a] text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+            }`}
+            id="main-tab-analytics-btn"
+          >
+            <BarChart2 size={14} />
+            <span>АНАЛИЗ РАБОТЫ И KPI</span>
+          </button>
         </div>
 
         {/* Tab 1: Map Section */}
@@ -521,22 +815,22 @@ export default function App() {
                 {/* Global Excel Import Template */}
                 <button
                   onClick={handleDownloadGlobalStaffTemplate}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-bold rounded-lg text-xs transition-colors cursor-pointer border border-slate-200 shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer border border-slate-200 shadow-sm"
                   title="Скачать шаблон таблицы Excel для импорта штата всех станций"
                   id="download-global-template-btn"
                 >
                   <Download size={13} className="text-slate-500" />
-                  <span>Скачать шаблон Excel</span>
+                  <span>Шаблон штата (Excel)</span>
                 </button>
 
                 {/* Global Excel Upload Button */}
                 <label 
                   id="global-staff-excel-label"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-emerald-600/10 font-bold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 border border-slate-200 text-emerald-600 font-semibold rounded-lg text-xs transition-all cursor-pointer shadow-sm"
                   title="Загрузить штатные расписания всех станций из одного Excel файла"
                 >
                   <Upload size={13} />
-                  <span>Импорт штата всех станций (Excel)</span>
+                  <span>Импорт штата (Excel)</span>
                   <input
                     type="file"
                     accept=".xlsx, .xls"
@@ -545,14 +839,41 @@ export default function App() {
                   />
                 </label>
 
+                {/* Global Indicators Template Downloader */}
+                <button
+                  onClick={handleDownloadGlobalIndicatorsTemplate}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg text-xs transition-colors cursor-pointer border border-slate-200 shadow-sm"
+                  title="Скачать шаблон таблицы Excel для импорта показателей работы станций за месяц"
+                  id="download-global-indicators-template-btn"
+                >
+                  <Download size={13} className="text-[#e21a1a]" />
+                  <span>Шаблон показателей (Excel)</span>
+                </button>
+
+                {/* Global Indicators Upload Button */}
+                <label 
+                  id="global-indicators-excel-label"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-emerald-500/10"
+                  title="Загрузить показатели работы всех станций из одного Excel файла"
+                >
+                  <BarChart2 size={13} />
+                  <span>Импорт показателей работы (Excel)</span>
+                  <input
+                    type="file"
+                    accept=".xlsx, .xls"
+                    onChange={handleGlobalIndicatorsExcelUpload}
+                    className="hidden"
+                  />
+                </label>
+
                 {/* Bulk PDF Schemes Upload Button */}
                 <label 
                   id="bulk-schemes-pdf-label"
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-red-500/10 font-bold"
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#e21a1a] hover:bg-red-700 text-white font-bold rounded-lg text-xs transition-all cursor-pointer shadow-sm shadow-red-500/10"
                   title="Выбрать несколько PDF-файлов со схемами путевого развития станций (название файла должно соответствовать названию станции)"
                 >
                   <FileText size={13} />
-                  <span>Импорт схем станций (PDF)</span>
+                  <span>Импорт схем (PDF)</span>
                   <input
                     type="file"
                     accept=".pdf"
@@ -609,6 +930,16 @@ export default function App() {
             </div>
 
           </section>
+        )}
+
+        {/* Tab 3: Performance Analysis and KPI Dashboard */}
+        {activeMainTab === 'analytics' && (
+          <WorkAnalysis 
+            stations={stations}
+            onSelectStation={(station) => {
+              setSelectedStation(station);
+            }}
+          />
         )}
 
         {/* Backup Status Message */}
